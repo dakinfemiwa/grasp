@@ -4,10 +4,14 @@
 # IDs (MOD-NN) are Grasp-internal identifiers, NOT official Edexcel specification references.
 # Scope: Edexcel A-level Mathematics, Pure, mathematical modelling, excluding calculus.
 #
+# spec_refs cite the Pearson Edexcel A level Mathematics (9MA0) specification, Issue 4
+# (Feb 2020): overarching themes (OT1-OT3) or content numbers. They are references for teachers,
+# not a claim of complete specification coverage.
+#
 # Prerequisites are sparse and form a DAG: list one only when the later skill cannot be
 # evidenced without the earlier one. Bump catalogue_version when ids or meanings change.
 
-catalogue_version: 1
+catalogue_version: 2
 domain_area: "Pure: Mathematical modelling"
 
 objectives:
@@ -24,6 +28,7 @@ objectives:
     prerequisites: []
     domains: [linear, quadratic, trigonometric, interpretation]
     evidence_types: [selection, numeric_answer]
+    spec_refs: [OT2.6]
 
   - id: MOD-02
     title: Define variables
@@ -38,6 +43,7 @@ objectives:
     prerequisites: [MOD-01]
     domains: [linear, quadratic, trigonometric]
     evidence_types: [variable_definition, selection]
+    spec_refs: [OT1.1]
 
   - id: MOD-03
     title: Identify mathematical relationships
@@ -52,6 +58,7 @@ objectives:
     prerequisites: [MOD-01]
     domains: [linear, quadratic, trigonometric]
     evidence_types: [selection, explanation]
+    spec_refs: [OT2.1]
 
   - id: MOD-04
     title: Make assumptions
@@ -65,6 +72,7 @@ objectives:
     prerequisites: []
     domains: [linear, quadratic, trigonometric, interpretation]
     evidence_types: [selection, explanation]
+    spec_refs: [OT3.1, OT3.5]
 
   - id: MOD-05
     title: Construct a mathematical model
@@ -78,6 +86,7 @@ objectives:
     prerequisites: [MOD-02, MOD-03]
     domains: [linear, quadratic, trigonometric]
     evidence_types: [equation, numeric_answer]
+    spec_refs: [OT3.1]
 
   - id: MOD-06
     title: Select a solution method
@@ -91,6 +100,7 @@ objectives:
     prerequisites: []
     domains: [linear, quadratic, trigonometric]
     evidence_types: [selection, explanation]
+    spec_refs: [OT2.1]
 
   - id: MOD-07
     title: Solve the model
@@ -103,6 +113,7 @@ objectives:
     prerequisites: [MOD-06]
     domains: [linear, quadratic, trigonometric]
     evidence_types: [numeric_answer, equation]
+    spec_refs: [OT3.2]
 
   - id: MOD-08
     title: Interpret results
@@ -115,6 +126,7 @@ objectives:
     prerequisites: [MOD-01]
     domains: [linear, quadratic, trigonometric, interpretation]
     evidence_types: [explanation, selection]
+    spec_refs: [OT3.3, OT2.3]
 
   - id: MOD-09
     title: Validate a result
@@ -128,6 +140,7 @@ objectives:
     prerequisites: [MOD-01]
     domains: [linear, quadratic, trigonometric, interpretation]
     evidence_types: [selection, explanation]
+    spec_refs: [OT2.5]
 
   - id: MOD-10
     title: Evaluate a model
@@ -141,6 +154,7 @@ objectives:
     prerequisites: [MOD-04]
     domains: [linear, quadratic, trigonometric, interpretation]
     evidence_types: [explanation, selection]
+    spec_refs: [OT3.4, "2.11"]
 
   - id: MOD-11
     title: Transfer modelling skills
@@ -154,3 +168,4 @@ objectives:
     prerequisites: [MOD-05]
     domains: [linear, quadratic, trigonometric]
     evidence_types: [equation, numeric_answer, selection]
+    spec_refs: [OT2.1]

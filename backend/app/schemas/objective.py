@@ -14,6 +14,7 @@ class ObjectiveOut(BaseModel):
     prerequisites: list[str]
     domains: list[Domain]
     evidence_types: list[EvidenceType]
+    spec_refs: list[str] = Field(description="Pearson Edexcel 9MA0 (Issue 4) theme or content numbers")
     catalogue_version: int
 
     @field_validator("prerequisites", mode="before")

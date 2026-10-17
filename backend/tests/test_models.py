@@ -30,6 +30,8 @@ def make_instance(db: Session, objective: LearningObjective, **overrides: object
     fields: dict[str, object] = dict(
         template_id="T-1",
         template_version=1,
+        scenario_id="SCN-TEST",
+        scenario_version=1,
         seed=1,
         parameters={"a": 1},
         prompt="p",

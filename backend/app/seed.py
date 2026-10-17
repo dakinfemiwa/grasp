@@ -33,6 +33,7 @@ def sync_catalogue(db: Session, catalogue: Catalogue) -> int:
         objective.success_criteria = list(item.success_criteria)
         objective.domains = [d.value for d in item.domains]
         objective.evidence_types = [e.value for e in item.evidence_types]
+        objective.spec_refs = list(item.spec_refs)
         objective.catalogue_version = catalogue.catalogue_version
         by_code[item.id] = objective
 

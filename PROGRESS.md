@@ -11,7 +11,9 @@ Pure modelling without calculus); the stage map from Stage 3 on follows §13 of 
 | 2 — Data model | ✅ Done (2026-10-17) |
 | 3 — Rename to Grasp + modelling objective catalogue | ✅ Done (2026-10-17) — verified against Neon |
 | 4 — Quadratic template engine + instance/evidence schema (generation, constraints, worked solution, structured marking, validation, ≥20 instances) | ✅ Done (2026-10-17) — verified against Neon |
-| 5 — Scenario library (draft/reviewed/approved, explicit compatibility) + extension points for linear/trig templates | ⏭ Next |
+| 5a — Edexcel spec refs + scenario library | ✅ Done (2026-10-17) — verified against Neon |
+| 5b — Linear template LIN-TWO-POINT (spec 3.1) | ⏭ Next |
+| 5c — Trig template TRIG-WHEEL-HEIGHT (spec 5.9, 5.7, 2.11) | Not started |
 | 6 — Student UI: modelling practice, structured response, feedback, worked solution, variation | Not started |
 | 7 — Tests sweep, README/architecture docs, final report (+ deployment, if still wanted) | Not started |
 
@@ -256,4 +258,32 @@ Objectives exist as FK targets for templates, instances and evidence. Stage 4 ad
 - No authenticated request from a real browser token has hit the practice endpoints yet (Stage 6 UI).
 
 ### Ready for Stage 5
-Scenario library with explicit template compatibility, plus stub template families for linear and trig.
+Scenario library with explicit template compatibility, plus linear and trig templates anchored to the Edexcel spec (plan: `~/.claude/plans/good-continue-you-can-bubbly-ocean.md`).
+
+---
+
+## Stage 5a — Edexcel spec references + scenario library
+
+### Spec references
+- Source checked: Pearson Edexcel A level Mathematics 9MA0, specification Issue 4 (Feb 2020), from the official PDF.
+- Catalogue v2: each objective has `spec_refs` to overarching themes (e.g. MOD-04 → OT3.1, OT3.5; MOD-10 → OT3.4, 2.11). Templates carry `spec_refs` too: QUAD-RECT-AREA → 2.3, OT3.1, OT2.3. These are references for teachers, not a claim of full spec coverage. MOD ids stay Grasp-internal.
+
+### Scenarios (`backend/content/scenarios/*.yaml`)
+- Schema in `app/scenarios/schema.py`; cross-checked against the template registry in `app/engine/scenarios.py`. It collects every problem: unknown template/version, slots that don't fit the template's `slots_model`, bounds that widen a template range or name a derived parameter, duplicates, inverted bounds.
+- Compatibility is explicit both ways: a scenario lists `{template, version}` with its slots; the template declares the slots it needs (`RectangleSlots`: subject, unit, optional lead-in).
+- Library: five rectangle scenarios for QUAD-RECT-AREA — abstract (cm), garden, workshop floor, event marquee, sports-ground training area (m). All `draft`.
+- Engine: `generate(template, seed, scenario=None)`. With no scenario, it picks one deterministically from the seed. Scenario bounds narrow sampling. The parameter RNG is unchanged, so the abstract scenario reproduces Stage 4 instances exactly (checked against all 20 stored rows).
+- Template API change: `sample(rng, bounds)`, `render_prompt/worked_solution(params, slots)`, `mark(params, slots, response)`, `fields(slots)` (units follow the scenario). New generic checks: `scenario_compatible`, `slots_typed`, `within_scenario_bounds`.
+
+### Schema (migration `0004`)
+- `learning_objectives.spec_refs` (JSON).
+- `question_instances.scenario_version`; `scenario_id`/`scenario_version` now non-null. The 20 existing rows are backfilled to `SCN-RECT-ABSTRACT` v1 (it aborts if any row can't be backfilled). The unique key is now (template, version, scenario, scenario version, seed). The downgrade refuses if two rows differ only by scenario.
+- Found while testing on Neon: after a downgrade, the re-upgrade aborted because `scenario_id` was already set. The guard worked and the transaction rolled back; the backfill condition is fixed.
+
+### API / CLI
+- `POST /practice/instances` takes an optional `scenario_id`; the instance includes `scenario`; `GET /templates` lists `spec_refs` and servable scenarios; objectives expose `spec_refs`. Draft scenarios follow the same development-only serving rule as templates.
+- `python -m app.engine.cli list` shows scenarios per template; `generate … --scenario SCN-…`.
+
+### Checks
+- `pytest`: **131 passed** (new `test_scenarios.py`: library loads; 6 incompatibility + 5 malformed cases; bounds narrow sampling; out-of-bounds params rejected; 20 valid reproducible instances per scenario; deterministic pick covers the library; abstract scenario reproduces stored instances).
+- Neon: `upgrade` → `downgrade -1` → `upgrade` → `alembic check`: no drift. Seed: catalogue v2. CLI: 20/20 valid for each scenario. Live: endpoints → 401 without a token.

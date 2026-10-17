@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.catalogue import Domain
 from app.engine import build, generate, get_template
 from app.engine.base import (
+    Bounds,
     Constraint,
     FieldKind,
     GenerationError,
@@ -20,7 +21,8 @@ from app.engine.base import (
 )
 from app.engine import registry
 from app.engine.registry import UnknownTemplate, register
-from app.models.enums import StepOutcome
+from app.models.enums import ReviewStatus, StepOutcome
+from app.scenarios import Compatibility, Scenario
 
 
 @pytest.fixture(autouse=True, scope="module")
@@ -39,7 +41,26 @@ class NResponse(BaseModel):
     n: float | None = None
 
 
-class Doubling(QuestionTemplate[NParams, NResponse]):
+class NSlots(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    noun: str
+
+
+def scenario_for(template_id: str) -> Scenario:
+    return Scenario(
+        id="SCN-TEST",
+        version=1,
+        title="Test",
+        description="d",
+        entities=["n"],
+        relationships=["answer = 2n"],
+        presentation="abstract",
+        review_status=ReviewStatus.DRAFT,
+        compatible_templates=[Compatibility(template=template_id, version=1, slots={"noun": "number"})],
+    )
+
+
+class Doubling(QuestionTemplate[NParams, NSlots, NResponse]):
     """Minimal template for exercising the generic pipeline."""
 
     id = "TEST-DOUBLE"
@@ -48,23 +69,25 @@ class Doubling(QuestionTemplate[NParams, NResponse]):
     domain = Domain.LINEAR
     primary_objective = "MOD-07"
     params_model = NParams
+    slots_model = NSlots
     response_model = NResponse
+    default_scenario = "SCN-TEST"
     marking_criteria = (MarkingCriterion("answer", "MOD-07", "Doubles n."),)
     response_fields = (ResponseField("n", "Answer", FieldKind.NUMBER),)
 
-    def sample(self, rng: random.Random) -> NParams:
-        return NParams(n=rng.randint(0, 10))
+    def sample(self, rng: random.Random, bounds: Bounds) -> NParams:
+        return NParams(n=rng.randint(*bounds["n"]))
 
-    def render_prompt(self, p: NParams) -> str:
-        return f"Double {p.n}."
+    def render_prompt(self, p: NParams, s: NSlots) -> str:
+        return f"Double the {s.noun} {p.n}."
 
     def expected_answer(self, p: NParams) -> NResponse:
         return NResponse(n=2 * p.n)
 
-    def worked_solution(self, p: NParams) -> list[WorkedStep]:
+    def worked_solution(self, p: NParams, s: NSlots) -> list[WorkedStep]:
         return [WorkedStep("MOD-07", "Double", f"2 × {p.n} = {2 * p.n}")]
 
-    def mark(self, p: NParams, r: NResponse) -> list[MarkedStep]:
+    def mark(self, p: NParams, s: NSlots, r: NResponse) -> list[MarkedStep]:
         ok = r.n == 2 * p.n
         return [MarkedStep("answer", "MOD-07", StepOutcome.CORRECT if ok else StepOutcome.INCORRECT, "")]
 
@@ -89,14 +112,14 @@ def test_registry_lookup_and_immutable_versions() -> None:
 
 
 def test_generic_pipeline_validates_a_well_formed_template() -> None:
-    q = generate(get_template("TEST-DOUBLE-REG"), 3)
+    q = generate(get_template("TEST-DOUBLE-REG"), 3, scenario_for("TEST-DOUBLE-REG"))
     assert all(c.passed for c in q.validation)
     assert q.expected_answer == {"n": 2 * q.parameters["n"]}
 
 
 def test_unregistered_template_fails_structural_validation() -> None:
     with pytest.raises(InvalidInstance, match="template_registered"):
-        generate(Doubling(), 1)
+        generate(Doubling(), 1, scenario_for("TEST-DOUBLE"))
 
 
 def test_misaligned_expected_answer_is_caught() -> None:
@@ -108,7 +131,7 @@ def test_misaligned_expected_answer_is_caught() -> None:
             return NResponse(n=2 * p.n + 1)
 
     with pytest.raises(InvalidInstance, match="answer_marking_aligned"):
-        generate(get_template("TEST-WRONG-ANSWER"), 1)
+        generate(get_template("TEST-WRONG-ANSWER"), 1, scenario_for("TEST-WRONG-ANSWER"))
 
 
 def test_unknown_objective_is_caught() -> None:
@@ -118,7 +141,7 @@ def test_unknown_objective_is_caught() -> None:
         secondary_objectives = ("MOD-42",)
 
     with pytest.raises(InvalidInstance, match="objectives_exist"):
-        generate(get_template("TEST-BAD-OBJECTIVE"), 1)
+        generate(get_template("TEST-BAD-OBJECTIVE"), 1, scenario_for("TEST-BAD-OBJECTIVE"))
 
 
 def test_unsatisfiable_constraints_raise_generation_error() -> None:
@@ -129,11 +152,11 @@ def test_unsatisfiable_constraints_raise_generation_error() -> None:
         constraints = (Constraint("never", "n must exceed 10", lambda p: p.n > 10),)
 
     with pytest.raises(GenerationError, match="never"):
-        generate(get_template("TEST-IMPOSSIBLE"), 1)
+        generate(get_template("TEST-IMPOSSIBLE"), 1, scenario_for("TEST-IMPOSSIBLE"))
 
 
 def test_build_with_explicit_params_reports_every_problem() -> None:
     template: Any = get_template("TEST-DOUBLE-REG")
     with pytest.raises(Exception) as exc:
-        build(template, {"n": 11, "extra": 1})
+        build(template, {"n": 11, "extra": 1}, scenario=scenario_for("TEST-DOUBLE-REG"))
     assert len(exc.value.problems) == 2  # type: ignore[attr-defined]

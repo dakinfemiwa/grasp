@@ -9,8 +9,11 @@ from app.core.auth import get_current_user
 from app.core.config import Settings, get_settings
 from app.db.session import get_db
 from app.engine import UnknownTemplate, all_templates, generate, get_template
-from app.engine.base import AnyTemplate, ReviewStatus
+from app.engine.base import AnyTemplate
+from app.engine.scenarios import UnknownScenario, compatible_scenarios, get_scenario, pick_scenario, slots_for
 from app.models import QuestionInstance, User
+from app.models.enums import ReviewStatus
+from app.scenarios import Scenario
 from app.schemas.practice import (
     MAX_SEED,
     AttemptIn,
@@ -21,6 +24,7 @@ from app.schemas.practice import (
     MarkedStepOut,
     ObjectiveTag,
     ResponseFieldOut,
+    ScenarioOut,
     TemplateOut,
     WorkedStepOut,
 )
@@ -29,12 +33,22 @@ from app.services.practice import get_or_create_instance, objective_outcomes, re
 router = APIRouter(tags=["practice"])
 
 
-def servable(template: AnyTemplate, settings: Settings) -> bool:
-    """Only approved templates reach students; development also serves drafts for testing."""
-    return template.review_status is ReviewStatus.APPROVED or settings.environment == "development"
+def servable(content: AnyTemplate | Scenario, settings: Settings) -> bool:
+    """Only approved templates and scenarios reach students; development also serves drafts."""
+    return content.review_status is ReviewStatus.APPROVED or settings.environment == "development"
 
 
-def template_out(t: AnyTemplate) -> TemplateOut:
+def servable_scenarios(template: AnyTemplate, settings: Settings) -> list[Scenario]:
+    return [s for s in compatible_scenarios(template) if servable(s, settings)]
+
+
+def scenario_out(s: Scenario) -> ScenarioOut:
+    return ScenarioOut(
+        id=s.id, version=s.version, title=s.title, presentation=s.presentation, review_status=s.review_status
+    )
+
+
+def template_out(t: AnyTemplate, settings: Settings) -> TemplateOut:
     return TemplateOut(
         id=t.id,
         version=t.version,
@@ -42,42 +56,46 @@ def template_out(t: AnyTemplate) -> TemplateOut:
         domain=t.domain.value,
         primary_objective=t.primary_objective,
         secondary_objectives=list(t.secondary_objectives),
+        spec_refs=list(t.spec_refs),
         review_status=t.review_status,
+        scenarios=[scenario_out(s) for s in servable_scenarios(t, settings)],
     )
 
 
-def instance_out(instance: QuestionInstance, template: AnyTemplate) -> InstanceOut:
+def instance_out(instance: QuestionInstance, template: AnyTemplate, scenario: Scenario) -> InstanceOut:
     return InstanceOut(
         id=instance.id,
         template_id=instance.template_id,
         template_version=instance.template_version,
+        scenario=scenario_out(scenario),
         prompt=instance.prompt,
         difficulty=instance.difficulty,
         objectives=[ObjectiveTag(id=o.objective.code, is_primary=o.is_primary) for o in instance.objectives],
         response_fields=[
             ResponseFieldOut(name=f.name, label=f.label, kind=f.kind, help=f.help, options=list(f.options), unit=f.unit)
-            for f in template.response_fields
+            for f in template.fields(slots_for(template, scenario))
         ],
         hints=[HintOut(id=h.id, objective=h.objective, text=h.text) for h in template.hints],
     )
 
 
-def load_instance(db: Session, instance_id: int) -> tuple[QuestionInstance, AnyTemplate]:
+def load_instance(db: Session, instance_id: int) -> tuple[QuestionInstance, AnyTemplate, Scenario]:
     instance = db.get(QuestionInstance, instance_id)
     if instance is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Question instance not found.")
     try:
         template = get_template(instance.template_id, instance.template_version)
-    except UnknownTemplate:
-        raise HTTPException(status.HTTP_409_CONFLICT, "This question's template is no longer available.") from None
-    return instance, template
+        scenario = get_scenario(instance.scenario_id, instance.scenario_version)
+    except (UnknownTemplate, UnknownScenario):
+        raise HTTPException(status.HTTP_409_CONFLICT, "This question's template or scenario is no longer available.") from None
+    return instance, template, scenario
 
 
 @router.get("/templates", response_model=list[TemplateOut])
 def list_templates(
     settings: Settings = Depends(get_settings), _user: User = Depends(get_current_user)
 ) -> list[TemplateOut]:
-    return [template_out(t) for t in all_templates() if servable(t, settings)]
+    return [template_out(t, settings) for t in all_templates() if servable(t, settings)]
 
 
 @router.post("/practice/instances", response_model=InstanceOut, status_code=status.HTTP_201_CREATED)
@@ -87,24 +105,31 @@ def create_instance(
     settings: Settings = Depends(get_settings),
     _user: User = Depends(get_current_user),
 ) -> InstanceOut:
-    candidates = [t for t in all_templates() if servable(t, settings)]
+    templates = [t for t in all_templates() if servable(t, settings) and servable_scenarios(t, settings)]
     if body.template_id is not None:
-        candidates = [t for t in candidates if t.id == body.template_id]
-    if not candidates:
+        templates = [t for t in templates if t.id == body.template_id]
+    if not templates:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "No question template is available.")
     # Latest version of the requested template, or a random template.
-    template = max(candidates, key=lambda t: t.version) if body.template_id else secrets.choice(candidates)
+    template = max(templates, key=lambda t: t.version) if body.template_id else secrets.choice(templates)
+
+    scenarios = servable_scenarios(template, settings)
+    if body.scenario_id is not None:
+        scenarios = [s for s in scenarios if s.id == body.scenario_id]
+        if not scenarios:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "That scenario is not available for this template.")
     seed = body.seed if body.seed is not None else secrets.randbelow(MAX_SEED + 1)
-    instance = get_or_create_instance(db, generate(template, seed))
-    return instance_out(instance, template)
+    scenario = pick_scenario(template, seed, scenarios)
+
+    instance = get_or_create_instance(db, generate(template, seed, scenario))
+    return instance_out(instance, template, scenario)
 
 
 @router.get("/practice/instances/{instance_id}", response_model=InstanceOut)
 def read_instance(
     instance_id: int, db: Session = Depends(get_db), _user: User = Depends(get_current_user)
 ) -> InstanceOut:
-    instance, template = load_instance(db, instance_id)
-    return instance_out(instance, template)
+    return instance_out(*load_instance(db, instance_id))
 
 
 @router.post(
@@ -116,7 +141,7 @@ def submit_attempt(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ) -> AttemptOut:
-    instance, template = load_instance(db, instance_id)
+    instance, template, scenario = load_instance(db, instance_id)
     try:
         response = template.response_model.model_validate(body.response)
     except ValidationError as exc:
@@ -129,7 +154,10 @@ def submit_attempt(
             [{"loc": ("body", "hints_used"), "msg": f"Unknown hints {sorted(unknown_hints)}", "type": "value_error"}]
         )
 
-    evidence, steps = record_attempt(db, user, instance, template, response, body.hints_used, body.time_taken_ms)
+    slots = slots_for(template, scenario)
+    evidence, steps = record_attempt(
+        db, user, instance, template, slots, response, body.hints_used, body.time_taken_ms
+    )
     return AttemptOut(
         evidence_id=evidence.id,
         attempt_number=evidence.attempt_number,

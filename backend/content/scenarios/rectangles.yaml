@@ -1,0 +1,88 @@
+# Rectangle scenarios for QUAD-RECT-AREA. Validated by app.engine.scenarios at load time.
+#
+# Only list a template under compatible_templates when the scenario fully specifies what the
+# template needs. Slots are wording only: they must not state the model or a solution.
+# Bounds may only narrow the template's ranges (width 2-20, difference 1-12; area <= 500).
+# A published (id, version) is immutable: bump `version` to change wording or bounds.
+# review_status stays `draft` until a teacher has reviewed the scenario.
+
+scenarios:
+  - id: SCN-RECT-ABSTRACT
+    version: 1
+    title: Abstract rectangle
+    description: A bare rectangle with no real-world context, in centimetres.
+    entities: [rectangle]
+    relationships: [area = width × length, length = width + difference]
+    assumptions: []
+    presentation: abstract
+    review_status: draft
+    compatible_templates:
+      - template: QUAD-RECT-AREA
+        version: 1
+        slots: {subject: A rectangle, unit: cm}
+
+  - id: SCN-RECT-GARDEN
+    version: 1
+    title: Garden plot
+    description: A rectangular garden whose length exceeds its width by a fixed amount.
+    entities: [garden]
+    relationships: [area = width × length, length = width + difference]
+    assumptions: [The garden is a perfect rectangle., Edging and paths are ignored.]
+    presentation: narrative
+    review_status: draft
+    compatible_templates:
+      - template: QUAD-RECT-AREA
+        version: 1
+        slots: {subject: A rectangular garden, unit: m}
+        bounds: {width: {min: 3, max: 15}, difference: {min: 1, max: 8}}
+
+  - id: SCN-RECT-WORKSHOP
+    version: 1
+    title: Workshop floor
+    description: The floor of a rectangular workshop.
+    entities: [workshop, floor]
+    relationships: [area = width × length, length = width + difference]
+    assumptions: [The floor is rectangular with no alcoves or pillars.]
+    presentation: narrative
+    review_status: draft
+    compatible_templates:
+      - template: QUAD-RECT-AREA
+        version: 1
+        slots: {subject: The rectangular floor of a workshop, unit: m}
+        bounds: {width: {min: 4, max: 12}}
+
+  - id: SCN-RECT-MARQUEE
+    version: 1
+    title: Event marquee
+    description: The floor area of a rectangular marquee for an event.
+    entities: [marquee, floor]
+    relationships: [area = width × length, length = width + difference]
+    assumptions: [The marquee floor is a rectangle., Guy ropes and entrances are ignored.]
+    presentation: narrative
+    review_status: draft
+    compatible_templates:
+      - template: QUAD-RECT-AREA
+        version: 1
+        slots:
+          lead_in: An events company is planning the floor of a marquee.
+          subject: The rectangular floor
+          unit: m
+        bounds: {width: {min: 5, max: 15}}
+
+  - id: SCN-RECT-TRAINING
+    version: 1
+    title: Sports-ground training area
+    description: A rectangular training area marked out on a school sports field.
+    entities: [sports field, training area]
+    relationships: [area = width × length, length = width + difference]
+    assumptions: [The marked area is a perfect rectangle., Line markings have negligible width.]
+    presentation: narrative
+    review_status: draft
+    compatible_templates:
+      - template: QUAD-RECT-AREA
+        version: 1
+        slots:
+          lead_in: A school marks out a training area on its sports field.
+          subject: The rectangular training area
+          unit: m
+        bounds: {width: {min: 10, max: 20}, difference: {min: 2, max: 10}}

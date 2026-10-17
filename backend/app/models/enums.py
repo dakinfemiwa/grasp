@@ -7,6 +7,14 @@ class UserRole(StrEnum):
     ADMIN = "admin"
 
 
+class ReviewStatus(StrEnum):
+    """Review state of authored content (templates, scenarios)."""
+
+    DRAFT = "draft"  # authored, not yet reviewed by a person
+    REVIEWED = "reviewed"  # reviewed, changes may be pending
+    APPROVED = "approved"  # cleared for the normal student question bank
+
+
 class StepOutcome(StrEnum):
     """Outcome of one marked modelling step, and of the objective-level evidence it yields."""
 

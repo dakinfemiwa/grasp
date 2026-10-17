@@ -4,15 +4,16 @@ import pytest
 
 from app.engine import build, generate, get_template
 from app.engine.base import InvalidParameters
-from app.engine.templates.quadratic_rectangle import RectangleParams, RectangleResponse
+from app.engine.templates.quadratic_rectangle import RectangleParams, RectangleResponse, RectangleSlots
 from app.models.enums import StepOutcome
 
 TEMPLATE = get_template("QUAD-RECT-AREA")
 GARDEN = RectangleParams(width=8, difference=4, area=96)
+CM = RectangleSlots(subject="A rectangle", unit="cm")
 
 
 def mark(**response: Any) -> dict[str, StepOutcome]:
-    steps = TEMPLATE.mark(GARDEN, RectangleResponse(**response))
+    steps = TEMPLATE.mark(GARDEN, CM, RectangleResponse(**response))
     return {s.step: s.outcome for s in steps}
 
 
@@ -115,13 +116,13 @@ def test_marking_separates_construction_solving_and_interpretation() -> None:
 def test_wrong_variable_relationship_and_partial_answers() -> None:
     outcome = mark(**{**FULL, "other_side": "x - 4"})
     assert outcome["define_variables"] is StepOutcome.INCORRECT
-    only_positive = TEMPLATE.mark(GARDEN, RectangleResponse(**{**FULL, "roots": [8]}))
+    only_positive = TEMPLATE.mark(GARDEN, CM, RectangleResponse(**{**FULL, "roots": [8]}))
     solve = next(s for s in only_positive if s.step == "solve")
     assert solve.outcome is StepOutcome.INCORRECT and "two solutions" in solve.feedback
     assert set(mark().values()) == {StepOutcome.MISSING}
 
 
 def test_unparseable_equation_gets_feedback_not_an_error() -> None:
-    steps = TEMPLATE.mark(GARDEN, RectangleResponse(**{**FULL, "equation": "x(x+4) 96"}))
+    steps = TEMPLATE.mark(GARDEN, CM, RectangleResponse(**{**FULL, "equation": "x(x+4) 96"}))
     form = next(s for s in steps if s.step == "form_equation")
     assert form.outcome is StepOutcome.INCORRECT and "=" in form.feedback

@@ -15,13 +15,7 @@ from typing import Any, ClassVar
 from pydantic import BaseModel
 
 from app.catalogue import Domain
-from app.models.enums import StepOutcome
-
-
-class ReviewStatus(StrEnum):
-    DRAFT = "draft"  # authored, not yet reviewed by a person
-    REVIEWED = "reviewed"  # reviewed, changes may be pending
-    APPROVED = "approved"  # cleared for the normal student question bank
+from app.models.enums import ReviewStatus, StepOutcome
 
 
 class ValidationCategory(StrEnum):
@@ -117,12 +111,18 @@ class ValidationCheck:
     message: str = ""
 
 
+# Effective inclusive integer ranges per sampled parameter (template range ∩ scenario bounds).
+Bounds = dict[str, tuple[int, int]]
+
+
 @dataclass(frozen=True)
 class GeneratedQuestion:
     """A concrete, validated instance. Pure data: persisting it is the caller's job."""
 
     template_id: str
     template_version: int
+    scenario_id: str
+    scenario_version: int
     seed: int | None
     parameters: dict[str, Any]
     prompt: str
@@ -132,15 +132,18 @@ class GeneratedQuestion:
     secondary_objectives: tuple[str, ...]
     difficulty: int
     validation: list[ValidationCheck] = field(default_factory=list)
-    scenario_id: str | None = None  # Stage 5: scenario library
 
 
-class QuestionTemplate[P: BaseModel, R: BaseModel](ABC):
-    """Extension point for every template family (quadratic now; linear and trig next).
+class QuestionTemplate[P: BaseModel, S: BaseModel, R: BaseModel](ABC):
+    """Extension point for every template family (quadratic, linear, trigonometric, ...).
 
-    To add a template: subclass, fill in the class attributes and abstract methods, and
-    decorate with @register (app.engine.registry). A published (id, version) is immutable:
-    change behaviour by bumping `version`, so stored instances stay reproducible.
+    P: typed parameters. S: the wording "slots" a compatible scenario must supply.
+    R: the structured student response.
+
+    To add a template: subclass, fill in the class attributes and abstract methods, decorate
+    with @register (app.engine.registry), and list it in at least one scenario's
+    compatible_templates. A published (id, version) is immutable: change behaviour by bumping
+    `version`, so stored instances stay reproducible.
     """
 
     id: ClassVar[str]
@@ -149,9 +152,13 @@ class QuestionTemplate[P: BaseModel, R: BaseModel](ABC):
     domain: ClassVar[Domain]
     primary_objective: ClassVar[str]
     secondary_objectives: ClassVar[tuple[str, ...]] = ()
+    # Pearson Edexcel 9MA0 (Issue 4) content/theme numbers this template draws on.
+    spec_refs: ClassVar[tuple[str, ...]] = ()
     review_status: ClassVar[ReviewStatus] = ReviewStatus.DRAFT
     params_model: type[P]
+    slots_model: type[S]
     response_model: type[R]
+    default_scenario: ClassVar[str]  # used by build() when no scenario is given
     constraints: ClassVar[tuple[Constraint, ...]] = ()
     marking_criteria: ClassVar[tuple[MarkingCriterion, ...]]
     response_fields: ClassVar[tuple[ResponseField, ...]]
@@ -163,30 +170,47 @@ class QuestionTemplate[P: BaseModel, R: BaseModel](ABC):
     def objectives(self) -> tuple[str, ...]:
         return (self.primary_objective, *self.secondary_objectives)
 
-    @abstractmethod
-    def sample(self, rng: random.Random) -> P:
-        """Choose independent values from rng and derive dependent ones (never hope for luck)."""
+    def parameter_bounds(self) -> Bounds:
+        """Inclusive ranges of the sampled (non-derived) integer parameters, from the params model."""
+        bounds: Bounds = {}
+        for name, info in self.params_model.model_fields.items():
+            extra = info.json_schema_extra if isinstance(info.json_schema_extra, dict) else {}
+            if extra.get("derived"):
+                continue
+            lo = next((m.ge for m in info.metadata if hasattr(m, "ge")), None)
+            hi = next((m.le for m in info.metadata if hasattr(m, "le")), None)
+            if lo is not None and hi is not None:
+                bounds[name] = (int(lo), int(hi))
+        return bounds
 
     @abstractmethod
-    def render_prompt(self, params: P) -> str: ...
+    def sample(self, rng: random.Random, bounds: Bounds) -> P:
+        """Choose independent values within bounds and derive dependent ones (never hope for luck)."""
+
+    @abstractmethod
+    def render_prompt(self, params: P, slots: S) -> str: ...
 
     @abstractmethod
     def expected_answer(self, params: P) -> R:
         """A model response; marking it must give every step CORRECT (checked by validation)."""
 
     @abstractmethod
-    def worked_solution(self, params: P) -> list[WorkedStep]: ...
+    def worked_solution(self, params: P, slots: S) -> list[WorkedStep]: ...
 
     @abstractmethod
-    def mark(self, params: P, response: R) -> list[MarkedStep]: ...
+    def mark(self, params: P, slots: S, response: R) -> list[MarkedStep]: ...
 
     @abstractmethod
     def difficulty(self, params: P) -> int:
         """1 (easiest) .. 5."""
 
-    def checks(self, params: P, prompt: str) -> list[ValidationCheck]:
+    def fields(self, slots: S) -> tuple[ResponseField, ...]:
+        """Response fields as shown for one scenario (e.g. with its units). Override if needed."""
+        return self.response_fields
+
+    def checks(self, params: P, slots: S, prompt: str) -> list[ValidationCheck]:
         """Template-specific mathematical, pedagogical and presentation checks."""
         return []
 
 
-AnyTemplate = QuestionTemplate[Any, Any]
+AnyTemplate = QuestionTemplate[Any, Any, Any]

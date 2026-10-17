@@ -1,8 +1,8 @@
 """Generated question instances and the student evidence recorded against them.
 
-Templates themselves are application code (app.engine), so they have no table: an instance
-records the (template_id, template_version) it came from plus its seed and parameters, which
-is enough to regenerate it exactly.
+Templates (application code) and scenarios (versioned YAML) have no tables: an instance records
+the template and scenario ids + versions it came from plus its seed and parameters, which is
+enough to regenerate it exactly.
 """
 
 from datetime import datetime
@@ -19,8 +19,15 @@ from app.models.enums import EvidenceOutcome, StepOutcome
 class QuestionInstance(Base):
     __tablename__ = "question_instances"
     __table_args__ = (
-        # Generation is deterministic, so one row per (template, version, seed).
-        UniqueConstraint("template_id", "template_version", "seed", name="uq_question_instances_template_seed"),
+        # Generation is deterministic, so one row per (template, version, scenario, version, seed).
+        UniqueConstraint(
+            "template_id",
+            "template_version",
+            "scenario_id",
+            "scenario_version",
+            "seed",
+            name="uq_question_instances_generation",
+        ),
         CheckConstraint("difficulty BETWEEN 1 AND 5", name="difficulty_range"),
     )
 
@@ -28,7 +35,8 @@ class QuestionInstance(Base):
     template_id: Mapped[str] = mapped_column(String(60))
     template_version: Mapped[int] = mapped_column(Integer)
     seed: Mapped[int] = mapped_column(Integer)
-    scenario_id: Mapped[str | None] = mapped_column(String(60))  # Stage 5: scenario library
+    scenario_id: Mapped[str] = mapped_column(String(60))  # content/scenarios/*.yaml
+    scenario_version: Mapped[int] = mapped_column(Integer)
     parameters: Mapped[dict[str, Any]] = mapped_column(JSONType)
     prompt: Mapped[str] = mapped_column(Text)
     expected_answer: Mapped[dict[str, Any]] = mapped_column(JSONType)

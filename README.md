@@ -54,7 +54,11 @@ From `backend/`:
 
 API (Clerk token required): `GET /api/v1/templates`, `POST /api/v1/practice/instances`, `GET /api/v1/practice/instances/{id}`, `POST /api/v1/practice/instances/{id}/attempts`. Attempts take a structured response (variable, other side, equation, roots, final dimensions) and are marked step by step; each step is recorded as objective-level evidence.
 
-Templates start as `draft`. Only `approved` templates are served outside `ENVIRONMENT=development`; change `review_status` after a teacher has reviewed the template.
+Scenarios (`backend/content/scenarios/*.yaml`) supply the context and wording: a scenario lists exactly which template versions it supports, the wording slots for each, and optional bounds that can only narrow a template's parameter ranges. List them with `cli list`; pass `--scenario SCN-…` to `generate`.
+
+Objectives and templates carry `spec_refs`: references to the Pearson Edexcel A level Mathematics (9MA0, Issue 4) content numbers and overarching themes. They help teachers navigate; they are not a claim of complete specification coverage.
+
+Templates and scenarios start as `draft`. Only `approved` templates are served outside `ENVIRONMENT=development`; change `review_status` after a teacher has reviewed the template.
 
 ### Adding a template
 

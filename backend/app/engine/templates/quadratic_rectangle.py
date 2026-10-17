@@ -11,12 +11,14 @@ every instance has a known positive integer solution and a negative root to reje
 import math
 import random
 import re
+from dataclasses import replace
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.catalogue import Domain
 from app.engine.base import (
+    Bounds,
     Constraint,
     FieldKind,
     Hint,
@@ -40,7 +42,6 @@ from app.engine.expr import (
 from app.engine.registry import register
 from app.models.enums import StepOutcome
 
-UNIT = "cm"
 TOLERANCE = 0.01
 MAX_AREA = 500
 Variable = Literal["width", "length"]
@@ -56,6 +57,16 @@ class RectangleParams(BaseModel):
     @property
     def length(self) -> int:
         return self.width + self.difference
+
+
+class RectangleSlots(BaseModel):
+    """Wording a scenario supplies, e.g. subject "A rectangular garden", unit "m"."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    subject: str = Field(min_length=1, max_length=80)
+    unit: Literal["mm", "cm", "m"]
+    lead_in: str | None = Field(default=None, max_length=200)  # optional sentence before the subject
 
 
 class RectangleResponse(BaseModel):
@@ -84,17 +95,20 @@ def _signed(n: int) -> str:
 
 
 @register
-class QuadraticRectangleArea(QuestionTemplate[RectangleParams, RectangleResponse]):
+class QuadraticRectangleArea(QuestionTemplate[RectangleParams, RectangleSlots, RectangleResponse]):
     id = "QUAD-RECT-AREA"
     version = 1
     title = "Rectangle dimensions from area"
     domain = Domain.QUADRATIC
     primary_objective = "MOD-05"
     secondary_objectives = ("MOD-02", "MOD-07", "MOD-09", "MOD-08")
+    spec_refs = ("2.3", "OT3.1", "OT2.3")
     # Authored by the engine developer; needs a teacher's review before it is APPROVED.
     review_status = ReviewStatus.DRAFT
     params_model = RectangleParams
+    slots_model = RectangleSlots
     response_model = RectangleResponse
+    default_scenario = "SCN-RECT-ABSTRACT"
     difficulty_notes = "Difficulty grows with the area: ≤100 → 1, ≤250 → 2, otherwise 3."
 
     constraints = (
@@ -103,7 +117,7 @@ class QuadraticRectangleArea(QuestionTemplate[RectangleParams, RectangleResponse
             "area must equal width × (width + difference)",
             lambda p: p.area == p.width * (p.width + p.difference),
         ),
-        Constraint("area_range", f"area must be at most {MAX_AREA} {UNIT}²", lambda p: p.area <= MAX_AREA),
+        Constraint("area_range", f"area must be at most {MAX_AREA}", lambda p: p.area <= MAX_AREA),
     )
 
     marking_criteria = (
@@ -116,11 +130,11 @@ class QuadraticRectangleArea(QuestionTemplate[RectangleParams, RectangleResponse
 
     response_fields = (
         ResponseField("variable", "Let x be the…", FieldKind.CHOICE, options=("width", "length")),
-        ResponseField("other_side", "The other side, in terms of x", FieldKind.EXPRESSION, help="e.g. x + 3", unit=UNIT),
+        ResponseField("other_side", "The other side, in terms of x", FieldKind.EXPRESSION, help="e.g. x + 3"),
         ResponseField("equation", "Equation", FieldKind.EQUATION, help="Use x, e.g. x(x + 3) = 40"),
         ResponseField("roots", "Solutions of your equation", FieldKind.NUMBER_LIST, help="Give every solution"),
-        ResponseField("width", "Width", FieldKind.NUMBER, unit=UNIT),
-        ResponseField("length", "Length", FieldKind.NUMBER, unit=UNIT),
+        ResponseField("width", "Width", FieldKind.NUMBER),
+        ResponseField("length", "Length", FieldKind.NUMBER),
     )
 
     hints = (
@@ -129,15 +143,20 @@ class QuadraticRectangleArea(QuestionTemplate[RectangleParams, RectangleResponse
         Hint("solve", "MOD-07", "Rearrange so that one side is 0, then factorise."),
     )
 
-    def sample(self, rng: random.Random) -> RectangleParams:
-        width = rng.randint(2, 20)
-        difference = rng.randint(1, 12)
+    def fields(self, s: RectangleSlots) -> tuple[ResponseField, ...]:
+        with_unit = {"other_side", "width", "length"}
+        return tuple(replace(f, unit=s.unit) if f.name in with_unit else f for f in self.response_fields)
+
+    def sample(self, rng: random.Random, bounds: Bounds) -> RectangleParams:
+        width = rng.randint(*bounds["width"])
+        difference = rng.randint(*bounds["difference"])
         return RectangleParams(width=width, difference=difference, area=width * (width + difference))
 
-    def render_prompt(self, p: RectangleParams) -> str:
+    def render_prompt(self, p: RectangleParams, s: RectangleSlots) -> str:
+        lead_in = f"{s.lead_in} " if s.lead_in else ""
         return (
-            f"A rectangle has a length that is {p.difference} {UNIT} greater than its width. "
-            f"Its area is {p.area} {UNIT}². "
+            f"{lead_in}{s.subject} has a length that is {p.difference} {s.unit} greater than its width. "
+            f"Its area is {p.area} {s.unit}². "
             "Form an equation that can be used to find its dimensions, and determine the dimensions."
         )
 
@@ -151,10 +170,10 @@ class QuadraticRectangleArea(QuestionTemplate[RectangleParams, RectangleResponse
             length=p.length,
         )
 
-    def worked_solution(self, p: RectangleParams) -> list[WorkedStep]:
+    def worked_solution(self, p: RectangleParams, s: RectangleSlots) -> list[WorkedStep]:
         w, d, a, length = p.width, p.difference, p.area, p.length
         return [
-            WorkedStep("MOD-02", "Define the variables", f"Let the width be x {UNIT}. Then the length is (x + {d}) {UNIT}."),
+            WorkedStep("MOD-02", "Define the variables", f"Let the width be x {s.unit}. Then the length is (x + {d}) {s.unit}."),
             WorkedStep(
                 "MOD-05",
                 "Form the equation",
@@ -162,7 +181,7 @@ class QuadraticRectangleArea(QuestionTemplate[RectangleParams, RectangleResponse
             ),
             WorkedStep("MOD-07", "Solve", f"(x - {w})(x + {length}) = 0, so x = {w} or x = -{length}."),
             WorkedStep("MOD-09", "Reject the invalid solution", f"A width cannot be negative, so reject x = -{length}."),
-            WorkedStep("MOD-08", "Interpret", f"The width is {w} {UNIT} and the length is {length} {UNIT}."),
+            WorkedStep("MOD-08", "Interpret", f"The width is {w} {s.unit} and the length is {length} {s.unit}."),
             WorkedStep(
                 "MOD-09",
                 "Check against the original conditions",
@@ -182,7 +201,7 @@ class QuadraticRectangleArea(QuestionTemplate[RectangleParams, RectangleResponse
     def _roots(self, p: RectangleParams, variable: Variable) -> tuple[float, float]:
         return (p.width, -p.length) if variable == "width" else (p.length, -p.width)
 
-    def mark(self, p: RectangleParams, r: RectangleResponse) -> list[MarkedStep]:
+    def mark(self, p: RectangleParams, s: RectangleSlots, r: RectangleResponse) -> list[MarkedStep]:
         steps: list[MarkedStep] = []
         candidates: list[Variable] = [r.variable] if r.variable else ["width", "length"]
 
@@ -201,7 +220,7 @@ class QuadraticRectangleArea(QuestionTemplate[RectangleParams, RectangleResponse
                 feedback = (
                     f"Correct: if x is the {r.variable}, the {other} is x {_signed(int(shift))}."
                     if ok
-                    else f"If x is the {r.variable}, how does the {other} compare? Use the {p.difference} {UNIT} difference."
+                    else f"If x is the {r.variable}, how does the {other} compare? Use the {p.difference} {s.unit} difference."
                 )
             except ExpressionError as exc:
                 ok, feedback = False, str(exc)
@@ -218,7 +237,7 @@ class QuadraticRectangleArea(QuestionTemplate[RectangleParams, RectangleResponse
                 lhs, rhs = equation
                 for v in candidates:
                     shift, area = self._model(p, v)
-                    if proportional(lambda x: lhs(x) - rhs(x), lambda x, s=shift, a=area: x * (x + s) - a):
+                    if proportional(lambda x: lhs(x) - rhs(x), lambda x, k=shift, a=area: x * (x + k) - a):
                         model_variable = v
                         break
                 if model_variable:
@@ -258,28 +277,28 @@ class QuadraticRectangleArea(QuestionTemplate[RectangleParams, RectangleResponse
         if r.width is None or r.length is None:
             add("interpret_dimensions", StepOutcome.MISSING, "State the width and length of the rectangle.")
         elif _close(r.width, p.width) and _close(r.length, p.length):
-            add("interpret_dimensions", StepOutcome.CORRECT, f"Correct: {p.width} {UNIT} by {p.length} {UNIT}.")
+            add("interpret_dimensions", StepOutcome.CORRECT, f"Correct: {p.width} {s.unit} by {p.length} {s.unit}.")
         elif _close(r.width, p.length) and _close(r.length, p.width):
             add("interpret_dimensions", StepOutcome.INCORRECT, "You have swapped them: the length is the longer side.")
         else:
             add(
                 "interpret_dimensions",
                 StepOutcome.INCORRECT,
-                f"Check: the length should be {p.difference} {UNIT} more than the width, "
-                f"and width × length should be {p.area} {UNIT}².",
+                f"Check: the length should be {p.difference} {s.unit} more than the width, "
+                f"and width × length should be {p.area} {s.unit}².",
             )
 
         return steps
 
     # --- template-specific validation ----------------------------------------------------
 
-    def checks(self, p: RectangleParams, prompt: str) -> list[ValidationCheck]:
+    def checks(self, p: RectangleParams, s: RectangleSlots, prompt: str) -> list[ValidationCheck]:
         M, PED, PRES = ValidationCategory.MATHEMATICAL, ValidationCategory.PEDAGOGICAL, ValidationCategory.PRESENTATION
         answer = self.expected_answer(p)
         assert answer.width is not None and answer.length is not None
         model = (lambda x: x * (x + p.difference), lambda _x: float(p.area))
         negative = -p.length
-        marked_negative = self.mark(p, answer.model_copy(update={"width": float(negative)}))
+        marked_negative = self.mark(p, s, answer.model_copy(update={"width": float(negative)}))
         reject_step = next(m for m in marked_negative if m.step == "reject_invalid_root")
         numbers = {int(n) for n in re.findall(r"\d+", prompt.replace("²", ""))}
 
@@ -303,8 +322,8 @@ class QuadraticRectangleArea(QuestionTemplate[RectangleParams, RectangleResponse
             check(
                 "units_consistent",
                 M,
-                f"{p.difference} {UNIT} " in prompt and f"{p.area} {UNIT}²" in prompt,
-                f"lengths must be in {UNIT} and the area in {UNIT}²",
+                f"{p.difference} {s.unit} " in prompt and f"{p.area} {s.unit}²" in prompt,
+                f"lengths must be in {s.unit} and the area in {s.unit}²",
             ),
             check(
                 "given_values_present",

@@ -11,6 +11,8 @@ MODELLING_CATALOGUE_PATH = BACKEND_DIR / "content" / "objectives" / "modelling.y
 
 ObjectiveId = Annotated[str, StringConstraints(pattern=r"^MOD-\d{2}$")]
 NonEmptyText = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
+# A Pearson Edexcel 9MA0 (Issue 4) reference: an overarching theme ("OT3.1") or a content number ("2.11").
+SpecRef = Annotated[str, StringConstraints(pattern=r"^(OT\d\.\d|\d{1,2}\.\d{1,2})$")]
 
 
 class Domain(StrEnum):
@@ -40,6 +42,7 @@ class Objective(BaseModel):
     prerequisites: list[ObjectiveId] = Field(default_factory=list)
     domains: list[Domain] = Field(min_length=1)
     evidence_types: list[EvidenceType] = Field(min_length=1)
+    spec_refs: list[SpecRef] = Field(default_factory=list)
 
 
 class Catalogue(BaseModel):

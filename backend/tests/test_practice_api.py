@@ -127,6 +127,30 @@ def test_unknown_instance_is_404(client: TestClient, headers: dict[str, str]) ->
     assert response.status_code == 404
 
 
+def test_scenario_can_be_requested_and_is_reported(client: TestClient, headers: dict[str, str]) -> None:
+    body = {"template_id": "QUAD-RECT-AREA", "scenario_id": "SCN-RECT-GARDEN", "seed": 5}
+    response = client.post("/api/v1/practice/instances", json=body, headers=headers)
+    assert response.status_code == 201
+    instance = response.json()
+    assert instance["scenario"]["id"] == "SCN-RECT-GARDEN"
+    assert instance["prompt"].startswith("A rectangular garden")
+    assert {f["name"]: f["unit"] for f in instance["response_fields"]}["width"] == "m"
+    # Same seed, different scenario: a different instance.
+    other = client.post(
+        "/api/v1/practice/instances", json={**body, "scenario_id": "SCN-RECT-ABSTRACT"}, headers=headers
+    ).json()
+    assert other["id"] != instance["id"]
+
+    missing = client.post("/api/v1/practice/instances", json={**body, "scenario_id": "SCN-NOPE"}, headers=headers)
+    assert missing.status_code == 404
+
+
+def test_templates_list_spec_refs_and_scenarios(client: TestClient, headers: dict[str, str]) -> None:
+    (quad,) = [t for t in client.get("/api/v1/templates", headers=headers).json() if t["id"] == "QUAD-RECT-AREA"]
+    assert "2.3" in quad["spec_refs"]
+    assert {"SCN-RECT-ABSTRACT", "SCN-RECT-GARDEN"} <= {s["id"] for s in quad["scenarios"]}
+
+
 def test_draft_templates_are_not_served_outside_development(client: TestClient, headers: dict[str, str]) -> None:
     app.dependency_overrides[get_settings] = lambda: Settings(environment="production")
     assert client.get("/api/v1/templates", headers=headers).json() == []

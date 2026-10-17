@@ -28,3 +28,11 @@ def test_objectives_return_catalogue_with_prerequisites(
     assert by_id["MOD-01"]["domain_area"] == "Pure: Mathematical modelling"
     assert by_id["MOD-01"]["success_criteria"]
     assert "interpretation" in by_id["MOD-01"]["domains"]
+
+
+def test_objectives_expose_edexcel_spec_refs(
+    client: TestClient, db: Session, make_token: Callable[..., str]
+) -> None:
+    sync_catalogue(db, load_catalogue())
+    body = client.get("/api/v1/objectives", headers={"Authorization": f"Bearer {make_token()}"}).json()
+    assert {o["id"]: o["spec_refs"] for o in body}["MOD-10"] == ["OT3.4", "2.11"]

@@ -31,6 +31,7 @@ class LearningObjective(Base):
     success_criteria: Mapped[list[str]] = mapped_column(JSONType, default=list)
     domains: Mapped[list[str]] = mapped_column(JSONType, default=list)
     evidence_types: Mapped[list[str]] = mapped_column(JSONType, default=list)
+    spec_refs: Mapped[list[str]] = mapped_column(JSONType, default=list)  # Edexcel 9MA0 references
     catalogue_version: Mapped[int] = mapped_column(Integer)
 
     prerequisites: Mapped[list["LearningObjective"]] = relationship(

@@ -33,7 +33,7 @@ def catalogue(*objectives: dict[str, Any]) -> dict[str, Any]:
 def test_real_catalogue_has_mod_01_to_11_as_a_dag() -> None:
     cat = load_catalogue()
     assert [o.id for o in cat.objectives] == [f"MOD-{n:02d}" for n in range(1, 12)]
-    assert cat.catalogue_version == 1
+    assert cat.catalogue_version == 2
     assert _find_cycle({o.id: o.prerequisites for o in cat.objectives}) is None
     # Not an artificial chain: several roots and at least one multi-prerequisite objective.
     assert sum(1 for o in cat.objectives if not o.prerequisites) >= 2
@@ -55,6 +55,7 @@ def test_real_catalogue_has_mod_01_to_11_as_a_dag() -> None:
         (catalogue(entry("MOD-01", success_criteria=[])), "success_criteria"),
         (catalogue(entry("MOD-01", success_criteria=["  "])), "success_criteria"),
         (catalogue(entry("SUVAT-1")), "id"),
+        (catalogue(entry("MOD-01", spec_refs=["9MA0"])), "spec_refs"),
     ],
 )
 def test_rejects_malformed_catalogue(data: dict[str, Any], expected: str) -> None:

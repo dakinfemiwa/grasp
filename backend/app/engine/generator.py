@@ -1,8 +1,9 @@
 """Deterministic generation and validation of question instances.
 
-generate(template, seed) is a pure function of (template id, template version, seed): the
-same inputs always give the same instance. build(template, params) validates explicit
-parameters instead of sampling them. Both raise rather than return an invalid instance.
+generate(template, seed, scenario) is a pure function of (template id, template version,
+seed, scenario id, scenario version): the same inputs always give the same instance. With no
+scenario, one is picked deterministically from the seed. build(template, params) validates
+explicit parameters instead of sampling them. Both raise rather than return an invalid instance.
 """
 
 import random
@@ -15,6 +16,7 @@ from pydantic import BaseModel, ValidationError
 from app.catalogue import load_catalogue
 from app.engine.base import (
     AnyTemplate,
+    Bounds,
     GeneratedQuestion,
     GenerationError,
     InvalidInstance,
@@ -23,7 +25,16 @@ from app.engine.base import (
     ValidationCheck,
 )
 from app.engine.registry import UnknownTemplate, get_template
+from app.engine.scenarios import (
+    UnknownScenario,
+    compatible_scenarios,
+    effective_bounds,
+    get_scenario,
+    pick_scenario,
+    slots_for,
+)
 from app.models.enums import StepOutcome
+from app.scenarios import Scenario
 
 S, M, P = ValidationCategory.STRUCTURAL, ValidationCategory.MATHEMATICAL, ValidationCategory.PEDAGOGICAL
 
@@ -38,7 +49,7 @@ def rng_for(template: AnyTemplate, seed: int) -> random.Random:
     return random.Random(f"{template.id}:v{template.version}:{seed}")
 
 
-def parse_params(template: AnyTemplate, params: BaseModel | dict[str, Any]) -> BaseModel:
+def parse_params(template: AnyTemplate, params: BaseModel | dict[str, Any], bounds: Bounds | None = None) -> BaseModel:
     raw = params.model_dump() if isinstance(params, BaseModel) else params
     try:
         parsed = template.params_model.model_validate(raw)
@@ -47,7 +58,7 @@ def parse_params(template: AnyTemplate, params: BaseModel | dict[str, Any]) -> B
             f"Invalid parameters for {template.id} v{template.version}",
             [f"{'.'.join(str(p) for p in e['loc']) or '<root>'}: {e['msg']}" for e in exc.errors()],
         ) from exc
-    failed = constraint_failures(template, parsed)
+    failed = constraint_failures(template, parsed) + bounds_failures(parsed, bounds or {})
     if failed:
         raise InvalidParameters(f"Constraints failed for {template.id} v{template.version}", failed)
     return parsed
@@ -57,39 +68,72 @@ def constraint_failures(template: AnyTemplate, params: BaseModel) -> list[str]:
     return [f"{c.name}: {c.description}" for c in template.constraints if not c.holds(params)]
 
 
-def generate(template: AnyTemplate, seed: int) -> GeneratedQuestion:
+def bounds_failures(params: BaseModel, bounds: Bounds) -> list[str]:
+    return [
+        f"{name}={getattr(params, name)} is outside the scenario's range [{lo}, {hi}]"
+        for name, (lo, hi) in bounds.items()
+        if not lo <= getattr(params, name) <= hi
+    ]
+
+
+def _resolve(template: AnyTemplate, scenario: Scenario) -> tuple[BaseModel, Bounds]:
+    try:
+        return slots_for(template, scenario), effective_bounds(template, scenario)
+    except (UnknownScenario, ValidationError) as exc:
+        raise GenerationError(f"Scenario {scenario.id} v{scenario.version} cannot be used", [str(exc)]) from exc
+
+
+def generate(template: AnyTemplate, seed: int, scenario: Scenario | None = None) -> GeneratedQuestion:
+    if scenario is None:
+        try:
+            scenario = pick_scenario(template, seed, compatible_scenarios(template))
+        except UnknownScenario as exc:
+            raise GenerationError(f"Cannot generate {template.id} v{template.version}", [str(exc)]) from exc
+    slots, bounds = _resolve(template, scenario)
+    # The parameter RNG ignores the scenario: scenarios change sampling only through bounds.
     rng = rng_for(template, seed)
     last: list[str] = []
     for _ in range(template.max_sampling_attempts):
-        params = template.sample(rng)
-        last = constraint_failures(template, params)
+        params = template.sample(rng, bounds)
+        last = constraint_failures(template, params) + bounds_failures(params, bounds)
         if not last:
-            return _assemble(template, params, seed)
+            return _assemble(template, params, seed, scenario, slots)
     raise GenerationError(
-        f"No valid parameters for {template.id} v{template.version} after "
+        f"No valid parameters for {template.id} v{template.version} with {scenario.id} after "
         f"{template.max_sampling_attempts} attempts (seed {seed})",
         last,
     )
 
 
-def build(template: AnyTemplate, params: BaseModel | dict[str, Any], seed: int | None = None) -> GeneratedQuestion:
-    return _assemble(template, parse_params(template, params), seed)
+def build(
+    template: AnyTemplate,
+    params: BaseModel | dict[str, Any],
+    seed: int | None = None,
+    scenario: Scenario | None = None,
+) -> GeneratedQuestion:
+    scenario = scenario or get_scenario(template.default_scenario)
+    slots, bounds = _resolve(template, scenario)
+    return _assemble(template, parse_params(template, params, bounds), seed, scenario, slots)
 
 
-def _assemble(template: AnyTemplate, params: BaseModel, seed: int | None) -> GeneratedQuestion:
-    prompt = template.render_prompt(params)
-    checks = validate(template, params, prompt)
+def _assemble(
+    template: AnyTemplate, params: BaseModel, seed: int | None, scenario: Scenario, slots: BaseModel
+) -> GeneratedQuestion:
+    prompt = template.render_prompt(params, slots)
+    checks = validate(template, params, slots, scenario, prompt)
     failed = [f"[{c.category}] {c.name}: {c.message}" for c in checks if not c.passed]
     if failed:
         raise InvalidInstance(f"Generated {template.id} v{template.version} instance is invalid", failed)
     return GeneratedQuestion(
         template_id=template.id,
         template_version=template.version,
+        scenario_id=scenario.id,
+        scenario_version=scenario.version,
         seed=seed,
         parameters=params.model_dump(mode="json"),
         prompt=prompt,
         expected_answer=template.expected_answer(params).model_dump(mode="json"),
-        worked_solution=template.worked_solution(params),
+        worked_solution=template.worked_solution(params, slots),
         primary_objective=template.primary_objective,
         secondary_objectives=template.secondary_objectives,
         difficulty=template.difficulty(params),
@@ -101,7 +145,9 @@ def _check(name: str, category: ValidationCategory, passed: bool, message: str =
     return ValidationCheck(name=name, category=category, passed=passed, message="" if passed else message)
 
 
-def validate(template: AnyTemplate, params: BaseModel, prompt: str) -> list[ValidationCheck]:
+def validate(
+    template: AnyTemplate, params: BaseModel, slots: BaseModel, scenario: Scenario, prompt: str
+) -> list[ValidationCheck]:
     """Generic checks every template gets, followed by the template's own checks."""
     try:
         registered = get_template(template.id, template.version) is template
@@ -109,8 +155,9 @@ def validate(template: AnyTemplate, params: BaseModel, prompt: str) -> list[Vali
         registered = False
     unknown = [o for o in template.objectives if o not in catalogue_ids()]
     criteria_objectives = {c.objective for c in template.marking_criteria}
-    worked_objectives = {s.objective for s in template.worked_solution(params)}
-    marked = template.mark(params, template.expected_answer(params))
+    worked_objectives = {s.objective for s in template.worked_solution(params, slots)}
+    marked = template.mark(params, slots, template.expected_answer(params))
+    bounds = effective_bounds(template, scenario)
     not_correct = [m.step for m in marked if m.outcome is not StepOutcome.CORRECT]
     criteria_steps = [c.step for c in template.marking_criteria]
 
@@ -129,7 +176,17 @@ def validate(template: AnyTemplate, params: BaseModel, prompt: str) -> list[Vali
             isinstance(params, template.params_model),
             f"parameters are not a {template.params_model.__name__}",
         ),
+        _check(
+            "scenario_compatible",
+            S,
+            scenario.compatibility(template.id, template.version) is not None,
+            f"{scenario.id} v{scenario.version} does not list {template.id} v{template.version}",
+        ),
+        _check(
+            "slots_typed", S, isinstance(slots, template.slots_model), f"slots are not a {template.slots_model.__name__}"
+        ),
         _check("constraints_hold", M, not constraint_failures(template, params), "parameter constraints fail"),
+        _check("within_scenario_bounds", M, not bounds_failures(params, bounds), "parameters outside scenario bounds"),
         _check(
             "primary_objective_assessed",
             P,
@@ -150,7 +207,7 @@ def validate(template: AnyTemplate, params: BaseModel, prompt: str) -> list[Vali
         ),
         _check("difficulty_range", M, 1 <= template.difficulty(params) <= 5, "difficulty must be 1..5"),
     ]
-    return checks + template.checks(params, prompt)
+    return checks + template.checks(params, slots, prompt)
 
 
 def check_dicts(checks: list[ValidationCheck]) -> list[dict[str, Any]]:

@@ -27,13 +27,15 @@ def objective_ids(db: Session, codes: set[str]) -> dict[str, int]:
 
 
 def get_or_create_instance(db: Session, q: GeneratedQuestion) -> QuestionInstance:
-    """Instances are deterministic, so (template, version, seed) identifies one row."""
+    """Instances are deterministic, so (template, scenario, their versions, seed) identifies one row."""
     if q.seed is None:
         raise ValueError("Only seeded instances are persisted, so they can be regenerated.")
     existing = db.scalar(
         select(QuestionInstance).where(
             QuestionInstance.template_id == q.template_id,
             QuestionInstance.template_version == q.template_version,
+            QuestionInstance.scenario_id == q.scenario_id,
+            QuestionInstance.scenario_version == q.scenario_version,
             QuestionInstance.seed == q.seed,
         )
     )
@@ -46,6 +48,7 @@ def get_or_create_instance(db: Session, q: GeneratedQuestion) -> QuestionInstanc
         template_version=q.template_version,
         seed=q.seed,
         scenario_id=q.scenario_id,
+        scenario_version=q.scenario_version,
         parameters=q.parameters,
         prompt=q.prompt,
         expected_answer=q.expected_answer,
@@ -90,12 +93,13 @@ def record_attempt(
     user: User,
     instance: QuestionInstance,
     template: AnyTemplate,
+    slots: BaseModel,
     response: BaseModel,
     hints_used: list[str],
     time_taken_ms: int | None,
 ) -> tuple[Evidence, list[MarkedStep]]:
     params = template.params_model.model_validate(instance.parameters)
-    steps = template.mark(params, response)
+    steps = template.mark(params, slots, response)
     per_objective = objective_outcomes(steps)
     ids = objective_ids(db, set(per_objective))
     previous = db.scalar(

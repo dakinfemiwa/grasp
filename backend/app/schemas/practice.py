@@ -2,10 +2,18 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from app.engine.base import FieldKind, ReviewStatus
-from app.models.enums import EvidenceOutcome, StepOutcome
+from app.engine.base import FieldKind
+from app.models.enums import EvidenceOutcome, ReviewStatus, StepOutcome
 
 MAX_SEED = 2**31 - 1
+
+
+class ScenarioOut(BaseModel):
+    id: str
+    version: int
+    title: str
+    presentation: str
+    review_status: ReviewStatus
 
 
 class TemplateOut(BaseModel):
@@ -15,11 +23,14 @@ class TemplateOut(BaseModel):
     domain: str
     primary_objective: str
     secondary_objectives: list[str]
+    spec_refs: list[str] = Field(description="Pearson Edexcel 9MA0 (Issue 4) theme or content numbers")
     review_status: ReviewStatus
+    scenarios: list[ScenarioOut]
 
 
 class CreateInstanceIn(BaseModel):
     template_id: str | None = Field(default=None, description="Defaults to a random servable template.")
+    scenario_id: str | None = Field(default=None, description="Defaults to a scenario picked from the seed.")
     seed: int | None = Field(default=None, ge=0, le=MAX_SEED, description="Defaults to a random seed.")
 
 
@@ -49,6 +60,7 @@ class InstanceOut(BaseModel):
     id: int
     template_id: str
     template_version: int
+    scenario: ScenarioOut
     prompt: str
     difficulty: int
     objectives: list[ObjectiveTag]
