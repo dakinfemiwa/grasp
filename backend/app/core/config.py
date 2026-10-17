@@ -9,14 +9,16 @@ REPO_ROOT = BACKEND_DIR.parent
 
 
 class Settings(BaseSettings):
-    app_name: str = "Flexa API"
+    app_name: str = "Grasp API"
     environment: str = "development"
     # Pooled Neon URL (PgBouncer) for application traffic.
-    database_url: str = "postgresql+psycopg://flexa:flexa@localhost:5432/flexa"
+    database_url: str = "postgresql+psycopg://grasp:grasp@localhost:5432/grasp"
     # Direct (non-pooled) Neon URL for migrations; falls back to database_url.
     database_url_unpooled: str | None = None
     # Comma-separated list of allowed browser origins.
     frontend_url: str = "http://localhost:3000"
+    # Clerk Frontend API URL, e.g. https://<instance>.clerk.accounts.dev. Tokens must carry this `iss`.
+    clerk_issuer: str | None = None
 
     # Later files win: the repo-root .env is written by `neon env pull` / `neon deploy`,
     # so Neon-managed vars there override backend/.env. Real env vars beat both.

@@ -1,0 +1,156 @@
+# Grasp modelling objective catalogue. Loaded and validated by app.catalogue.load_catalogue;
+# synced into the database by `python -m app.seed`.
+#
+# IDs (MOD-NN) are Grasp-internal identifiers, NOT official Edexcel specification references.
+# Scope: Edexcel A-level Mathematics, Pure, mathematical modelling, excluding calculus.
+#
+# Prerequisites are sparse and form a DAG: list one only when the later skill cannot be
+# evidenced without the earlier one. Bump catalogue_version when ids or meanings change.
+
+catalogue_version: 1
+domain_area: "Pure: Mathematical modelling"
+
+objectives:
+  - id: MOD-01
+    title: Extract relevant information
+    description: >-
+      Read a real-world situation and pick out the quantities, units and conditions that
+      matter for a model, ignoring irrelevant detail.
+    success_criteria:
+      - Lists the known quantities with their units.
+      - Identifies the unknown quantity the question asks for.
+      - States the conditions or restrictions given in the context (e.g. starts at ground level, time is non-negative).
+      - Ignores information that does not affect the model.
+    prerequisites: []
+    domains: [linear, quadratic, trigonometric, interpretation]
+    evidence_types: [selection, numeric_answer]
+
+  - id: MOD-02
+    title: Define variables
+    description: >-
+      Introduce variables for the quantities in a situation, stating what each one
+      represents and its units, and use them consistently.
+    success_criteria:
+      - Names each variable and states the quantity it represents.
+      - States the units of each variable.
+      - Distinguishes the independent variable from the dependent variable.
+      - Uses each variable with the same meaning throughout.
+    prerequisites: [MOD-01]
+    domains: [linear, quadratic, trigonometric]
+    evidence_types: [variable_definition, selection]
+
+  - id: MOD-03
+    title: Identify mathematical relationships
+    description: >-
+      Recognise which kind of relationship (linear, quadratic, periodic) the information
+      in a situation supports, and which relationships it does not.
+    success_criteria:
+      - Identifies a constant rate of change as a linear relationship.
+      - Identifies a symmetric rise and fall, or a maximum or minimum, as a quadratic relationship.
+      - Identifies a repeating pattern as a trigonometric relationship.
+      - Justifies the choice using evidence from the problem.
+    prerequisites: [MOD-01]
+    domains: [linear, quadratic, trigonometric]
+    evidence_types: [selection, explanation]
+
+  - id: MOD-04
+    title: Make assumptions
+    description: >-
+      Identify or state reasonable simplifying assumptions that make a situation
+      tractable to model.
+    success_criteria:
+      - States at least one simplifying assumption the model relies on.
+      - Explains how the assumption simplifies the situation.
+      - Recognises an assumption that is unreasonable for the context.
+    prerequisites: []
+    domains: [linear, quadratic, trigonometric, interpretation]
+    evidence_types: [selection, explanation]
+
+  - id: MOD-05
+    title: Construct a mathematical model
+    description: >-
+      Form an equation or function that represents the situation, using the defined
+      variables and the identified relationship.
+    success_criteria:
+      - Writes an equation or function in terms of the defined variables.
+      - Determines the model's parameters from the given information.
+      - Checks that the model reproduces the given data points or conditions.
+    prerequisites: [MOD-02, MOD-03]
+    domains: [linear, quadratic, trigonometric]
+    evidence_types: [equation, numeric_answer]
+
+  - id: MOD-06
+    title: Select a solution method
+    description: >-
+      Choose an appropriate mathematical approach to answer the question from the model,
+      such as solving an equation, completing the square or reading off a parameter.
+    success_criteria:
+      - Identifies what mathematical operation answers the contextual question.
+      - Chooses a method suited to the form of the model (e.g. completing the square to find a maximum).
+      - Explains why the method answers the question asked.
+    prerequisites: []
+    domains: [linear, quadratic, trigonometric]
+    evidence_types: [selection, explanation]
+
+  - id: MOD-07
+    title: Solve the model
+    description: >-
+      Carry out the chosen method accurately to obtain a mathematically valid solution.
+    success_criteria:
+      - Obtains the correct solution(s) of the model's equation.
+      - Gives answers to an appropriate degree of accuracy.
+      - Shows working that follows from the chosen method.
+    prerequisites: [MOD-06]
+    domains: [linear, quadratic, trigonometric]
+    evidence_types: [numeric_answer, equation]
+
+  - id: MOD-08
+    title: Interpret results
+    description: >-
+      Explain what a mathematical result means in the original context, with units.
+    success_criteria:
+      - States the answer in words in the context of the problem.
+      - Includes the correct units.
+      - Explains the meaning of a model parameter (e.g. a gradient or an intercept) in context.
+    prerequisites: [MOD-01]
+    domains: [linear, quadratic, trigonometric, interpretation]
+    evidence_types: [explanation, selection]
+
+  - id: MOD-09
+    title: Validate a result
+    description: >-
+      Check a result against units, the context's constraints and the given information,
+      rejecting solutions that are mathematically valid but contextually impossible.
+    success_criteria:
+      - Rejects a solution that violates a constraint (e.g. negative time or length).
+      - Checks that units are consistent.
+      - Checks that the result is plausible in size for the context.
+    prerequisites: [MOD-01]
+    domains: [linear, quadratic, trigonometric, interpretation]
+    evidence_types: [selection, explanation]
+
+  - id: MOD-10
+    title: Evaluate a model
+    description: >-
+      Identify the limitations of a model and suggest refinements, including where the
+      model's assumptions break down.
+    success_criteria:
+      - Identifies a limitation of the model linked to one of its assumptions.
+      - Identifies a range of inputs for which the model is unreliable.
+      - Suggests a specific refinement and explains how it addresses a limitation.
+    prerequisites: [MOD-04]
+    domains: [linear, quadratic, trigonometric, interpretation]
+    evidence_types: [explanation, selection]
+
+  - id: MOD-11
+    title: Transfer modelling skills
+    description: >-
+      Apply the same underlying modelling reasoning in a new context or representation
+      (e.g. a table, graph or different real-world setting).
+    success_criteria:
+      - Constructs a model of the same mathematical form in an unfamiliar context.
+      - Moves between representations (words, tables, graphs, equations) of the same model.
+      - Recognises when two different contexts share the same mathematical structure.
+    prerequisites: [MOD-05]
+    domains: [linear, quadratic, trigonometric]
+    evidence_types: [equation, numeric_answer, selection]

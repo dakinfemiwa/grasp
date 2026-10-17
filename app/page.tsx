@@ -32,37 +32,37 @@ import { cn } from "@/lib/utils";
 
 const objectives = [
   {
-    name: "SUVAT fundamentals",
-    detail: "Choose and use the right equation",
+    name: "Construct a mathematical model",
+    detail: "Form an equation that represents a situation",
     progress: 72,
   },
   {
-    name: "Variable acceleration",
-    detail: "Build a model from a context",
+    name: "Interpret results",
+    detail: "Explain a solution in the original context",
     progress: 48,
   },
   {
-    name: "Motion graphs",
-    detail: "Read and interpret representations",
+    name: "Evaluate a model",
+    detail: "Identify limitations and refinements",
     progress: 31,
   },
 ];
 
 const activity = [
   {
-    title: "SUVAT fundamentals",
+    title: "Quadratic modelling",
     result: "4 / 5 correct",
     time: "Today",
     tone: "success" as const,
   },
   {
-    title: "Motion graphs",
+    title: "Linear modelling",
     result: "3 / 5 correct",
     time: "Yesterday",
     tone: "warning" as const,
   },
   {
-    title: "Variable acceleration",
+    title: "Trigonometric modelling",
     result: "2 / 4 correct",
     time: "Mon",
     tone: "muted" as const,
@@ -87,7 +87,7 @@ export default async function Home() {
               <Sparkles className="size-5" />
             </div>
             <div>
-              <p className="font-semibold tracking-tight">flexa</p>
+              <p className="font-semibold tracking-tight">grasp</p>
               <p className="text-[11px] uppercase tracking-[0.2em] text-slate-500">
                 adaptive maths
               </p>
@@ -151,7 +151,7 @@ export default async function Home() {
           <header className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-3 lg:hidden">
               <Menu className="size-5 text-slate-400" />
-              <span className="font-semibold">flexa</span>
+              <span className="font-semibold">grasp</span>
             </div>
             <UserGreeting />
             <div className="flex items-center gap-3">
@@ -182,7 +182,7 @@ export default async function Home() {
                   Turn today&apos;s mistakes into tomorrow&apos;s confidence.
                 </h2>
                 <p className="mt-4 max-w-md text-sm leading-6 text-slate-300">
-                  Continue with a question on SUVAT fundamentals. Same skill, a
+                  Continue with a quadratic modelling question. Same skill, a
                   fresh representation.
                 </p>
                 <a href="/practice" className={cn(buttonVariants(), "mt-7")}>
@@ -237,7 +237,7 @@ export default async function Home() {
                   <div>
                     <CardTitle>Learning objectives</CardTitle>
                     <CardDescription className="mt-1">
-                      Your progress across the mechanics toolkit.
+                      Your progress across the modelling skills.
                     </CardDescription>
                   </div>
                   <Target className="size-5 text-cyan-300" />
@@ -310,7 +310,7 @@ export default async function Home() {
             id="how-it-works"
             className="mt-8 flex flex-col gap-3 border-t border-slate-800/80 py-6 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between"
           >
-            <p>Flexa adapts the next question to your last attempt.</p>
+            <p>Grasp adapts the next question to your last attempt.</p>
             <p>Built for thoughtful practice, not streaks.</p>
           </footer>
         </section>

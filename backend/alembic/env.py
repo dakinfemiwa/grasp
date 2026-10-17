@@ -5,6 +5,7 @@ from sqlalchemy import engine_from_config, pool
 
 from app.core.config import get_settings
 from app.db.base import Base
+import app.models  # noqa: F401  (registers tables on Base.metadata)
 
 config = context.config
 settings = get_settings()
@@ -29,7 +30,7 @@ def run_migrations_online() -> None:
         poolclass=pool.NullPool,
     )
     with connectable.connect() as connection:
-        context.configure(connection=connection, target_metadata=target_metadata)
+        context.configure(connection=connection, target_metadata=target_metadata, compare_type=True)
         with context.begin_transaction():
             context.run_migrations()
 

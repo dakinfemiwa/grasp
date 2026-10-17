@@ -16,7 +16,7 @@ def test_liveness(client: TestClient) -> None:
 def test_health_reports_api_and_database(client: TestClient) -> None:
     response = client.get("/api/v1/health")
     assert response.status_code == 200
-    assert response.json() == {"status": "ok", "service": "flexa-api", "database": "ok"}
+    assert response.json() == {"status": "ok", "service": "grasp-api", "database": "ok"}
 
 
 def test_health_returns_structured_503_when_database_down(client: TestClient) -> None:
@@ -27,7 +27,7 @@ def test_health_returns_structured_503_when_database_down(client: TestClient) ->
     def broken_db() -> Generator[BrokenSession, None, None]:
         yield BrokenSession()
 
-    app.dependency_overrides[get_db] = broken_db
+    app.dependency_overrides[get_db] = broken_db  # replaces the conftest override for this test
     try:
         response = client.get("/api/v1/health")
     finally:

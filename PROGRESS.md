@@ -1,0 +1,220 @@
+# Grasp (formerly Flexa) MVP — Progress
+
+Tracks progress against `instructions.md`. One section per stage. Stages 0–2 were built against the
+old SUVAT/Flexa brief and are kept below as history. `instructions.md` was then rewritten (Grasp,
+Pure modelling without calculus); the stage map from Stage 3 on follows §13 of the new brief.
+
+| Stage | Status |
+|---|---|
+| 0 — Repository audit | ✅ Done (2026-10-17) |
+| 1 — Architecture + scaffold | ✅ Done (2026-10-17) — verified against Neon |
+| 2 — Data model | ✅ Done (2026-10-17) |
+| 3 — Rename to Grasp + modelling objective catalogue | ✅ Done (2026-10-17) — verified against Neon |
+| 4 — Quadratic template engine + instance/evidence schema (generation, constraints, worked solution, structured marking, validation, ≥20 instances) | ⏭ Next |
+| 5 — Scenario library (draft/reviewed/approved, explicit compatibility) + extension points for linear/trig templates | Not started |
+| 6 — Student UI: modelling practice, structured response, feedback, worked solution, variation | Not started |
+| 7 — Tests sweep, README/architecture docs, final report (+ deployment, if still wanted) | Not started |
+
+**Decision (2026-10-17):** Generation engine, validation and marking live in the **Python backend**
+(deterministic, no LLM). This departs from the brief's "TypeScript" wording in favour of its
+"reuse existing architecture" rule. SUVAT content is retired (dev seed only; no student data existed).
+
+**Decision (2026-10-17):** Option A approved — FastAPI + PostgreSQL own all app data; Convex removed.
+
+---
+
+## Stage 0 — Repository audit
+
+### What exists
+
+**Frontend (repo root, not `/frontend`)**
+- Next.js 16.3.6, React 19.2, TypeScript, Tailwind v4, shadcn-style primitives (`components/ui/*`), lucide icons.
+- Clerk (`@clerk/nextjs` v7): `ClerkProvider` in `app/layout.tsx`, sign-in/sign-up routes, `proxy.ts` (Next 16 replacement for middleware) protects `/`.
+- `app/page.tsx` (320 lines): dashboard UI, partly static placeholder content.
+- `components/practice-panel.tsx`: practice UI wired to Convex.
+- `lib/api.ts`: minimal FastAPI client (`getHealth` only), uses `NEXT_PUBLIC_API_URL`.
+
+**Application data: Convex (not in the target architecture)**
+- `convex/schema.ts`: `users`, `learningObjectives`, `questions`, `attempts`, `studentObjectiveProgress`.
+- `convex/attempts.ts`: marking is done here (`Number()` parse + tolerance) and progress is updated here (mastery = correct/attempted).
+- Ownership derived from Clerk identity server-side — good pattern.
+- ~300 lines of Convex code in total; a seed with a handful of questions.
+
+**Backend: `backend/` (FastAPI)**
+- `app/main.py`, `app/core/config.py` (pydantic-settings), `app/core/errors.py` (generic 500 handler), `app/db/session.py` (SQLAlchemy engine, SQLite default, Postgres via `DATABASE_URL`), `app/api/v1/health.py` (`GET /api/v1/health` with DB `SELECT 1`).
+- Alembic configured (`backend/alembic.ini`, `env.py` reads settings) but **no `versions/` directory and no models**.
+- CORS allows only `GET` from `FRONTEND_URL`.
+- No auth on the backend.
+
+**Tests**
+- Backend: `backend/tests/test_health.py` — **1 passed**.
+- Frontend: no tests, no test runner installed.
+
+**Checks run**
+- `pytest`: 1 passed.
+- `npm run lint`: 0 errors, 3 warnings (unused eslint-disable directives).
+- `tsc --noEmit`: errors in `convex/*` only — `convex/_generated` is stale relative to `schema.ts` (needs `npx convex dev`). Not worth fixing if Convex is retired.
+
+**Deployment config**: none (no `vercel.json`, `render.yaml`, Dockerfile, CI).
+
+### Problems found
+1. **Python virtualenv committed to git** — `backend/.venv` (≈8.5k tracked files) plus `__pycache__/*.pyc`. `.gitignore` has no Python entries.
+2. **Stray second venv** at `backend/app/.venv` (different FastAPI version, untracked). Should be deleted.
+3. **Split persistence**: app data in Convex, FastAPI only does health. The instructions require marking, error analysis, adaptive engine and analytics in Python over PostgreSQL — those need direct access to attempts/progress/questions. Keeping Convex would mean two sources of truth.
+4. Marking logic lives in Convex/TS — must move to the deterministic Python marking engine (Stage 4).
+5. README describes the Convex setup; will need rewriting.
+6. Secrets: `.env` / `.env.local` contain real Clerk/Convex keys but are correctly gitignored (`.env*`). Not committed. `CLERK_SECRET_KEY` is server-only. OK.
+
+### Recommendation
+
+**Extend the existing project; do not start clean.** The Next.js app, Clerk setup, UI primitives and FastAPI skeleton are all sound and match the target stack.
+
+Changes for Stage 1:
+- **Keep** Next.js at repo root (moving it to `/frontend` costs churn and breaks Vercel defaults for no MVP gain). Monorepo layout = root Next.js app + `backend/`.
+- **Keep** Clerk. Frontend sends the Clerk session JWT as `Authorization: Bearer`; FastAPI verifies it against Clerk's JWKS (`PyJWT`) and maps `sub` → `users.external_auth_id`. Ownership is always derived from the token, never from a client-supplied id.
+- **Retire Convex** — move its schema to SQLAlchemy models + Alembic migrations in Postgres, replace Convex hooks with calls through `lib/api.ts`, then remove `convex/`, `convex` dependency and `ConvexClientProvider`. (Only ~300 lines; the domain model carries over directly.)
+- **Keep** FastAPI skeleton; add `/api/v1` routers, POST in CORS, auth dependency, structured error responses.
+- **Repo hygiene first**: `git rm -r --cached backend/.venv`, delete `backend/app/.venv`, add Python ignores (`.venv/`, `__pycache__/`, `*.pyc`, `.pytest_cache/`, `*.db`).
+- Local Postgres for dev (Docker `postgres:16` or a local install); SQLite stays only as a test fixture fallback.
+
+### Ready for Stage 1
+Audit complete. Stage 1 can begin once the Convex-retirement decision above is confirmed.
+
+---
+
+## Stage 1 — Architecture + scaffold
+
+### Layout
+Monorepo: Next.js at repo root (Vercel default), FastAPI in `backend/`.
+
+### Done
+**Repo hygiene**
+- Untracked both committed virtualenvs (`backend/.venv`, `backend/app/.venv`; ~8.5k files) and `*.pyc`. Deleted the stray `backend/app/.venv`. Added Python entries to `.gitignore`.
+
+**Backend**
+- `app/main.py`: `create_app()` factory; CORS from `FRONTEND_URL` (comma-separated), all REST methods, `Authorization`/`Content-Type` headers.
+- `GET /health`: process liveness (for Render). `GET /api/v1/health`: also checks the DB (`SELECT 1`), 503 if it's down.
+- `app/api/v1/router.py`: single versioned router that new endpoint modules plug into.
+- `app/core/config.py`: Postgres default URL; `postgres://` URLs normalised to `postgresql+psycopg://`; `.env` loaded from `backend/` regardless of cwd.
+- `app/core/errors.py`: every error is `{"error": {"code", "message", "details"?}}` (HTTP errors, 422 validation, logged 500s).
+- Alembic: `alembic.ini` paths now cwd-independent (`%(here)s`); `alembic/versions/` created (first migration comes in Stage 2). Verified `upgrade head` from both repo root and `backend/`.
+- `pytest.ini` (no more `PYTHONPATH` needed); tests use in-memory SQLite via `tests/conftest.py`.
+
+**Frontend**
+- Convex removed: `convex/`, provider, npm dependency.
+- `lib/api.ts`: `apiFetch<T>()` adds the Bearer token, sends JSON, parses structured errors into `ApiError`.
+- Routes: `/practice`, `/progress` (placeholders, protected in `proxy.ts`); nav links point to them.
+- `components/practice-panel.tsx`: placeholder until Stage 7 (the old Convex practice panel is gone).
+- Fixed an existing build break: Clerk v7 removed `<SignedIn>/<SignedOut>`, so these now use `<Show when=…>`.
+- `next.config.ts`: `turbopack.root` set (a stray `C:\Users\davea\package-lock.json` confused root detection).
+
+### Checks
+- `pytest`: **7 passed** (liveness, DB health, structured 503/404, CORS allow/deny, URL normalisation).
+- `tsc --noEmit`: clean. `npm run lint`: clean (0 warnings). `npm run build`: passes.
+
+### Neon (2026-10-17)
+- Linked to Neon project `old-recipe-21163133`, branch `production` (`.neon`, gitignored). `neon.ts` declares Postgres only (implicit).
+- `neon deploy` / `neon env pull` write `DATABASE_URL` (pooled), `DATABASE_URL_UNPOOLED` (direct), `NEON_BRANCH` to the repo-root `.env`. Backend settings read that file after `backend/.env`, so Neon values win.
+- App traffic uses the pooled URL; Alembic uses `DATABASE_URL_UNPOOLED`.
+- Verified live: `GET /api/v1/health` → 200 `database: ok` against Neon (PG 18.6), write/read round trip via the app engine, Neon Auth JWKS + `/ok` reachable.
+- Neon Auth disabled on `production` (schema kept, not deleted); Clerk remains the auth provider. Re-enable with `auth: true` in `neon.ts` + `neon deploy` if migrating later.
+
+### Notes for later stages
+- Clerk JWT verification in FastAPI is deferred to Stage 2, alongside the `User` model.
+- README still describes Convex; rewrite at deployment/docs time.
+- `.env.local` still has unused `CONVEX_*` / `NEXT_PUBLIC_CONVEX_*` vars; harmless, safe to delete.
+- OneDrive can lock `.next` (EPERM on build); `rm -rf .next` fixes it. Consider excluding the folder from sync.
+
+### How to run locally
+```powershell
+# backend (repo root)
+backend\.venv\Scripts\python.exe -m pip install -r backend\requirements.txt
+backend\.venv\Scripts\python.exe -m alembic -c backend\alembic.ini upgrade head
+backend\.venv\Scripts\python.exe -m uvicorn app.main:app --app-dir backend --reload --port 8000
+# frontend (second terminal)
+npm run dev
+```
+
+---
+
+## Stage 2 — Data model
+
+### Schema (`backend/app/models/`, migration `alembic/versions/0001_core_schema.py`)
+| Table | Key columns | Notes |
+|---|---|---|
+| `users` | `id`, `external_auth_id` (unique, Clerk `sub`), `role`, `display_name`, `created_at` | role ∈ student/teacher/admin, default student |
+| `learning_objectives` | `id`, `code` (unique slug), `topic`, `name`, `description` | |
+| `questions` | `id`, `code` (unique slug), `learning_objective_id` FK, `difficulty` 1–5, `representation`, `context`, `prompt`, `expected_answer`, `tolerance`, `unit`, `explanation`, `metadata` JSONB, `is_active` | CHECKs on difficulty and tolerance |
+| `attempts` | `id`, `user_id` FK, `question_id` FK, `submitted_answer`, `parsed_answer`, `correctness`, `error_type`, `time_taken_ms`, `created_at` | index `(user_id, created_at)` for history and analytics |
+| `student_progress` | PK `(user_id, learning_objective_id)`, `attempts`, `correct_attempts`, `recent_accuracy`, `estimated_mastery`, `current_difficulty`, `updated_at` | CHECK correct ≤ attempts |
+
+Design choices:
+- Enums (`representation`, `correctness`, `error_type`, `role`) are VARCHAR + CHECK, not native PG enums, so adding a value is a simple migration. Python vocab is in `app/models/enums.py`.
+- JSON is used only for `questions.metadata` (common-error answers, graph data). Everything queried for analytics is a real column.
+- Stable `code` slugs on objectives and questions let content files be re-seeded in place without breaking attempt FKs.
+- `attempts` is the source of truth; `student_progress` is a rollup for fast reads.
+- A naming convention gives deterministic constraint names. Migration verified with upgrade → downgrade → upgrade on Neon; `alembic check` finds no drift.
+
+### Auth (pulled forward from "Notes for later stages")
+- `app/core/auth.py`: verifies Clerk RS256 session tokens against the Clerk JWKS (`CLERK_ISSUER` in `backend/.env`); checks `iss`, `exp`, `sub`, and `azp` ∈ allowed origins.
+- `get_current_user` dependency: get-or-create a `User` by `sub` (handles concurrent first requests). The client never supplies a user id.
+- `GET /api/v1/me` returns the profile (internal id, role; the Clerk id is not exposed).
+
+### Seed data
+- Content lives in `backend/content/suvat.yaml`, separate from code: 5 SUVAT objectives and 3 starter questions (numeric, word, graph).
+- `python -m app.seed` (from `backend/`) upserts by `code`; run twice on Neon with stable counts.
+
+### Checks
+- `pytest`: **23 passed**: model round-trip, CHECK and FK constraints, seed idempotency/update-in-place, auth (valid token creates the profile once; expired, wrong issuer, wrong azp, missing sub, foreign key and garbage tokens all → 401).
+- Live: `/api/v1/me` → structured 401 without a token. A forged token carrying Clerk's real `kid` → 401 (real JWKS fetched, signature rejected).
+
+### Not yet verified
+- A real browser-issued Clerk token hitting `/me`. The frontend doesn't call authenticated endpoints until Stage 7 (`useAuth().getToken()` → `apiFetch(..., { token })`).
+
+### Notes
+- New deps: `pyjwt[crypto]`, `pyyaml`.
+- Repo-root `.env` (Neon) still contains `NEON_AUTH_*` vars. They're unused (Neon Auth is disabled, see Stage 1 › Neon): auth stays on Clerk. Next.js loads this file too, but it has no `NEXT_PUBLIC_` vars, so nothing reaches the browser.
+- Teacher role assignment is undecided (Stage 8). The simplest option: an allowlist env var of Clerk ids.
+
+### Ready for Stage 3
+Schema, migrations, seed pipeline and content-file format are in place. *(Superseded: the brief changed; see Stage 3.)*
+
+---
+
+## Stage 3 — Rename to Grasp + modelling objective catalogue
+
+### Rename (targeted, not a global replace)
+- UI: `app/layout.tsx` metadata ("Grasp | Adaptive maths practice"), `app/page.tsx` brand and copy (SUVAT placeholders → modelling objectives; still static until Stage 6).
+- `package.json` name `grasp` (+ lockfile), `lib/api.ts`, `.env.example`, `backend/.env.example`, `backend/alembic/README`.
+- Backend: `app_name` "Grasp API", default local DB `grasp`, health `service: grasp-api`, logger `grasp`.
+- `README.md` rebranded; stale Convex sections removed (full rewrite in Stage 7).
+- **Left unchanged on purpose:** git remote, local folder name, Neon project, Clerk app name (external resources); this file's history; `instructions.md`; your secret files `.env.local` (old Convex comment) and `backend/.env` (local `flexa` DB URL — edit if you use a local Postgres).
+
+### Manual rename steps (external, not done by me)
+1. GitHub → `dakinfemiwa/flexa` → Settings → Repository name → `grasp`. GitHub redirects the old URL meanwhile.
+2. Then locally: `git remote set-url origin https://github.com/dakinfemiwa/grasp.git`
+3. Optional: rename the Clerk application display name in the Clerk dashboard (keys unaffected), and the Neon project name in the Neon console (connection strings unaffected).
+
+### Objective catalogue
+- Source of truth: `backend/content/objectives/modelling.yaml` (`catalogue_version: 1`), MOD-01..MOD-11 with title, description, success criteria, prerequisites, domains, evidence types. Labelled as Grasp-internal ids, not Edexcel ids.
+- Prerequisites (DAG, 9 edges): 02←01, 03←01, 05←02+03, 07←06, 08←01, 09←01, 10←04, 11←05. Roots: 01, 04, 06.
+- Validation: `app/catalogue/schema.py` — Pydantic, `extra="forbid"`, id pattern `^MOD-\d{2}$`, non-empty criteria, enum domains/evidence types; `load_catalogue` adds unique ids, known prerequisites, no self-reference, no cycles, and reports every problem at once.
+
+### Schema (migration `0002_modelling_catalogue`)
+- `learning_objectives`: `name`→`title`, `topic`→`domain_area` (index dropped), + `success_criteria`, `domains`, `evidence_types` (JSON), `catalogue_version`.
+- New `objective_prerequisites(objective_id, prerequisite_id)`: composite PK, both FKs CASCADE, CHECK not self.
+- SUVAT retirement: aborts if any `attempts` exist; otherwise deletes `questions` and `suvat.*` objectives. `questions`/`attempts` tables stay until Stage 4 replaces them.
+- Seeder (`python -m app.seed`) now syncs the catalogue: upsert by code, replace prerequisites, delete objectives removed from the file (errors if still referenced). `content/suvat.yaml` deleted.
+- `GET /api/v1/objectives` (authenticated) returns the catalogue with prerequisite ids.
+
+### Checks
+- `pytest`: **39 passed** (new: catalogue load + 9 rejection cases, sync idempotency, prerequisite change/removal, referenced-delete refusal, self-prereq CHECK, objectives API 401/200).
+- Neon: `upgrade head` → `downgrade -1` → `upgrade head` → `alembic check`: no drift. Seed run twice: 11 objectives, 9 prerequisite rows, 0 SUVAT rows, 0 questions.
+- Live: `/api/v1/health` → `grasp-api`; `/api/v1/objectives` → 401 without a token.
+- Frontend: `tsc --noEmit`, `npm run lint`, clean `npm run build` all pass.
+
+### Notes
+- `content/suvat.yaml` had never been committed, so it is **not** in git history. If you want it back, check the OneDrive recycle bin / version history.
+
+### Ready for Stage 4
+Objectives exist as FK targets for templates, instances and evidence. Stage 4 adds the quadratic template engine and replaces `questions`/`attempts` with instance/evidence tables.

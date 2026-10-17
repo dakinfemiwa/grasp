@@ -1,0 +1,69 @@
+"""Sync the objective catalogue (backend/content/objectives/) into the database.
+
+Idempotent: objectives are matched on their stable `code` and updated in place, and each
+objective's prerequisite rows are replaced to match the file. Objectives removed from the
+file are deleted if nothing references them; otherwise the sync fails rather than orphan data.
+Question templates and generated instances arrive in Stage 4.
+Usage (from backend/):  python -m app.seed
+"""
+
+from sqlalchemy import exists, select
+from sqlalchemy.orm import Session
+
+from app.catalogue import MODELLING_CATALOGUE_PATH, Catalogue, load_catalogue
+from app.models import LearningObjective, Question, StudentProgress
+
+
+class SeedError(RuntimeError):
+    pass
+
+
+def sync_catalogue(db: Session, catalogue: Catalogue) -> int:
+    existing = {o.code: o for o in db.scalars(select(LearningObjective))}
+    by_code: dict[str, LearningObjective] = {}
+
+    for item in catalogue.objectives:
+        objective = existing.pop(item.id, None)
+        if objective is None:
+            objective = LearningObjective(code=item.id)
+            db.add(objective)
+        objective.domain_area = catalogue.domain_area
+        objective.title = item.title
+        objective.description = item.description
+        objective.success_criteria = list(item.success_criteria)
+        objective.domains = [d.value for d in item.domains]
+        objective.evidence_types = [e.value for e in item.evidence_types]
+        objective.catalogue_version = catalogue.catalogue_version
+        by_code[item.id] = objective
+
+    for item in catalogue.objectives:
+        by_code[item.id].prerequisites = [by_code[p] for p in item.prerequisites]
+
+    for stale in existing.values():
+        referenced = db.scalar(
+            select(
+                exists().where(Question.learning_objective_id == stale.id)
+                | exists().where(StudentProgress.learning_objective_id == stale.id)
+            )
+        )
+        if referenced:
+            db.rollback()
+            raise SeedError(f"Objective {stale.code} was removed from the catalogue but is still referenced.")
+        stale.prerequisites = []
+        db.delete(stale)
+
+    db.commit()
+    return len(catalogue.objectives)
+
+
+def main() -> None:
+    from app.db.session import SessionLocal
+
+    catalogue = load_catalogue(MODELLING_CATALOGUE_PATH)
+    with SessionLocal() as db:
+        n = sync_catalogue(db, catalogue)
+    print(f"{MODELLING_CATALOGUE_PATH.name}: {n} objectives (catalogue v{catalogue.catalogue_version})")
+
+
+if __name__ == "__main__":
+    main()

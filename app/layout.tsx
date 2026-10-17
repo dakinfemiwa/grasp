@@ -15,9 +15,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Flexa | Adaptive maths practice",
+  title: "Grasp | Adaptive maths practice",
   description:
-    "Adaptive A-level Maths practice for changing question styles and contexts.",
+    "Adaptive A-level Maths practice in mathematical modelling.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

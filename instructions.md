@@ -1,652 +1,361 @@
-We need to build and deploy the MVP of an adaptive learning platform quickly.
+# Task: Evolve the existing Flexa MVP into Grasp
 
-You are the primary implementation agent. Work through the project in the exact sequence below.
+You are working in an existing codebase for an adaptive learning platform. Your task is to adapt the existing MVP into **Grasp**, an adaptive learning platform initially focused on A-level Edexcel Mathematics, beginning with Pure Mathematics modelling questions (excluding calculus for now).
 
-## PROJECT GOAL
+Do not blindly rebuild the project. First inspect the repository, understand its architecture and existing functionality, identify reusable components, and then implement a focused, maintainable MVP that builds on what is already there.
 
-Build a student-facing adaptive A-level Maths practice platform demonstrating:
+## 1. Product rename: Flexa → Grasp
 
-**attempt → diagnose → adapt → retry → measure improvement**
+Change the product name from **Flexa** to **Grasp** throughout the application.
 
-The core product hypothesis is:
+Inspect and update, where applicable:
 
-> Students need practice that helps them adapt the same underlying mathematical skill to different question styles, contexts and representations.
+- Application titles, metadata, page headings and visible branding.
+- Navigation, onboarding, dashboards and user-facing copy.
+- README and project documentation.
+- Package metadata and internal configuration where appropriate.
+- Tests, fixtures and seed data.
+- Any references to Flexa in source code, comments or configuration where the name represents the product.
 
-This MVP will be tested with real students, so prioritise a working product over theoretical completeness.
+Use `Grasp` as the display name and `grasp` where a lowercase identifier is appropriate.
 
----
+Do not perform unsafe, indiscriminate global replacements. Preserve third-party names, unrelated identifiers and historical references where changing them would be incorrect.
 
-# ARCHITECTURE
+**Repository rename:** The remote Git repository may still be named Flexa. Do not assume you can rename it locally or remotely. Inspect the Git remote and repository configuration, explain whether a rename is needed, and provide the exact manual steps if remote renaming requires an external action. Do not change the remote URL speculatively.
 
-Use a modular full-stack architecture:
+## 2. Inspect the current MVP before changing it
 
-```text
-Next.js / React
-      │
-      │ HTTPS / REST
-      ▼
-FastAPI / Python
-      │
-      ├── Application logic
-      ├── Adaptive engine
-      ├── Error analysis
-      └── Progress/analytics
-      │
-      ▼
-PostgreSQL
-```
+Start by examining:
 
-### Frontend
+- Frameworks, dependencies and project structure.
+- Existing pages, components, routes and data models.
+- Authentication and user/student relationships.
+- Database schema, queries, mutations and seed data.
+- Existing learning objectives, goals, subgoals, tasks or other learning structures.
+- Tests, scripts, development instructions and deployment configuration.
+- Any existing question-generation, tutoring or assessment functionality.
 
-- Next.js
-- React
-- TypeScript
-- Tailwind where appropriate
+Write a short implementation plan based on what actually exists.
 
-### Backend
+Preserve working functionality unless there is a concrete reason to change it. Reuse existing architectural patterns and dependencies where sensible. Avoid introducing a new framework, database, service or abstraction without a clear need.
 
-- Python
-- FastAPI
-- Pydantic
+Then implement the changes rather than stopping after producing the plan.
 
-### Database
+## 3. Initial product scope
 
-- PostgreSQL
-- SQLAlchemy + Alembic unless there is a strong reason to use another ORM/migration approach
+Grasp's first learning domain is:
 
-### Authentication
+**A-level Edexcel Mathematics → Pure Mathematics → Mathematical modelling, excluding calculus.**
 
-Use Clerk if it integrates cleanly with the architecture.
+The initial scope includes:
 
-### Deployment target
+- Linear modelling.
+- Quadratic modelling.
+- Trigonometric modelling.
+- Interpreting and evaluating mathematical models.
 
-- Frontend: Vercel
-- Backend: Render
-- Database: managed PostgreSQL
+Do not implement calculus-based optimisation, differentiation or integration questions as part of this initial modelling question bank. Do not confuse this restriction with a claim that calculus is excluded from the overall A-level qualification.
 
-Do NOT introduce microservices.
+Use the Edexcel A-level Mathematics specification as the initial curriculum reference. Relevant official sources include:
 
-Do NOT use Kubernetes.
+- https://qualifications.pearson.com/en/qualifications/edexcel-a-levels/mathematics-2017.html
+- https://qualifications.pearson.com/en/qualifications/edexcel-a-levels/mathematics-2017.html
 
-Do NOT add Redis/Kafka/vector databases unless a concrete MVP requirement emerges.
+If the repository already contains curriculum data, inspect and adapt it rather than duplicating it. Do not claim complete specification coverage unless it has been verified.
 
-The backend should be a modular monolith.
+## 4. Introduce an explicit modelling objective catalogue
 
----
+Represent modelling skills as observable student capabilities, not merely topic labels.
 
-# IMPORTANT DEVELOPMENT RULE
+Create a versioned, maintainable catalogue containing at least these proposed objectives:
 
-Work in stages.
+| ID     | Objective                           | Intended evidence                                                   |
+| ------ | ----------------------------------- | ------------------------------------------------------------------- |
+| MOD-01 | Extract relevant information        | Identifies quantities, units and conditions                         |
+| MOD-02 | Define variables                    | Defines quantities clearly and consistently                         |
+| MOD-03 | Identify mathematical relationships | Selects relationships supported by the problem                      |
+| MOD-04 | Make assumptions                    | Identifies or states reasonable simplifications                     |
+| MOD-05 | Construct a mathematical model      | Forms equations or functions representing a situation               |
+| MOD-06 | Select a solution method            | Chooses an appropriate mathematical approach                        |
+| MOD-07 | Solve the model                     | Obtains a mathematically valid solution                             |
+| MOD-08 | Interpret results                   | Explains results in the original context                            |
+| MOD-09 | Validate a result                   | Checks units, constraints and consistency                           |
+| MOD-10 | Evaluate a model                    | Identifies limitations and potential refinements                    |
+| MOD-11 | Transfer modelling skills           | Applies the underlying reasoning in a new context or representation |
 
-**Do not implement the entire project in one giant change.**
+These are Grasp's proposed internal IDs, not official Edexcel identifiers.
 
-At the end of each stage:
+For each objective, support:
 
-1. Run relevant tests/checks.
-2. Inspect the implementation.
-3. Fix problems.
-4. Summarise what was completed.
-5. State what is ready for the next stage.
+- A stable ID and title.
+- A clear description.
+- Observable success criteria.
+- Relevant prerequisites, where justified.
+- Applicable mathematical domains or template references.
+- The type of evidence that could demonstrate the skill.
 
-Do not proceed to a later architectural stage if an earlier stage is broken.
+Represent prerequisite relationships explicitly and allow multiple prerequisites. Do not force the objectives into an artificial linear sequence.
 
-Avoid unnecessary refactoring.
+Keep the objective catalogue separate from individual questions, question templates, scenarios and student evidence.
 
-Do not replace working infrastructure simply because you prefer another approach.
+If the current application has a suitable goal/subgoal/task structure, adapt or map it to this model instead of automatically replacing it.
 
----
+## 5. Separate the core data concepts
 
-# STAGE 0 — REPOSITORY AUDIT
+Design or adapt the existing data model to distinguish the following concepts.
 
-Before writing code:
+### A. Learning objective
 
-- inspect the existing repository
-- identify existing Next.js/React code
-- identify existing authentication/database infrastructure
-- identify existing dependencies
-- identify existing tests
-- identify existing deployment configuration
-- determine whether this is an existing project worth extending or whether a clean structure is preferable
+The capability a question is intended to assess.
 
-Do not delete existing work without a clear reason.
+### B. Mathematical question template
 
-Produce a short architecture recommendation based on what is actually in the repository.
+A reusable mathematical structure specifying:
 
----
+- Template ID and immutable version.
+- Mathematical domain.
+- Primary objective and any secondary objectives.
+- Parameter definitions and valid ranges.
+- Executable constraints.
+- Prompt-generation rules.
+- Solution logic.
+- Answer specification.
+- Marking criteria.
+- Difficulty characteristics.
+- Validation requirements.
+- Review status.
 
-# STAGE 1 — ARCHITECTURE + SCAFFOLD
+### C. Scenario definition
 
-Establish:
+A reusable context or representation, where appropriate, specifying:
 
-```text
-/frontend
-/backend
-```
+- Scenario ID and version.
+- Description and relevant entities.
+- Mathematical relationships represented.
+- Compatible templates.
+- Assumptions and constraints.
+- Permitted presentation formats.
+- Review status.
 
-or an equally clean monorepo structure.
+### D. Generated question instance
 
-Set up:
+A concrete question produced from a template and optional scenario, containing:
 
-### Frontend
+- Unique instance ID.
+- Template ID and version.
+- Parameter values and random seed.
+- Rendered question.
+- Expected answer and worked solution.
+- Objective tags.
+- Validation results.
+- Scenario reference, if applicable.
 
-- Next.js
-- TypeScript
-- basic routing
-- API client layer
-- environment configuration
+### E. Student evidence
 
-### Backend
+A record of an attempt, including:
 
-- FastAPI
-- application entry point
-- configuration
-- health endpoint
-- API versioning
-- database connection
-- structured error handling
+- Student and question references.
+- Submitted answer or structured working.
+- Marking outcome.
+- Objective-level evidence.
+- Hints or scaffolding used.
+- Timestamp and attempt number.
 
-### Database
+Adapt these concepts to the existing database and authentication architecture. Do not create unnecessary tables or duplicate existing concepts. Document significant schema changes and migrations.
 
-- PostgreSQL connection
-- SQLAlchemy models
-- Alembic migrations
+Avoid using `unknown` for all answer payloads or storing executable JavaScript in database strings. Use typed structures and executable validators in application code, with runtime validation at external data boundaries.
 
-Create a basic:
+## 6. Build an initial question-generation engine
 
-```text
-GET /health
-```
+Implement the smallest useful end-to-end engine rather than an extensive framework.
 
-endpoint.
+Start with one fully working template: **quadratic model construction from rectangular dimensions**.
 
-Frontend should be able to call the backend.
+Example question:
 
-### Acceptance criteria
+"A rectangular garden has a length 4 metres greater than its width. Its area is 96 square metres. Form an equation that can be used to find its dimensions, and determine the dimensions."
 
-I can run frontend and backend locally and see:
+Expected modelling:
 
-```text
-Frontend → FastAPI → PostgreSQL
-```
+- Define the width as \(x\).
+- Express the length as \(x+4\).
+- Construct \(x(x+4)=96\).
+- Solve the resulting equation.
+- Reject the negative width.
+- Interpret the dimensions as 8 m by 12 m.
+- Verify the result against the original conditions.
 
-working.
+The implementation should support:
 
----
+- Typed parameter specifications.
+- Valid parameter generation.
+- Explicit mathematical constraints.
+- Deterministic generation from a seed and template version.
+- Prompt rendering.
+- Answer calculation.
+- A worked solution.
+- Structured marking for the key modelling steps.
+- Validation that checks the result against the original conditions.
+- Clear errors when parameters or generated instances are invalid.
 
-# STAGE 2 — DATA MODEL
+Generate variations by selecting valid values and deriving dependent parameters where useful. Do not simply randomise numbers independently and hope the resulting question has a clean solution.
 
-Implement the core schema.
+For example, choose positive integer width \(x\) and positive difference \(d\), then derive the area \(A=x(x+d)\). This guarantees a known positive integer solution for this template, provided the implementation also enforces sensible ranges.
 
-At minimum:
+Do not make the entire engine dependent on an LLM. Use deterministic TypeScript for parameter generation, constraints, calculations and objective-level marking. AI may assist with offline authoring or future explanation features, but should not be required to produce a valid question at runtime.
 
-### User
+## 7. Prepare the next template families without overbuilding
 
-- id
-- external/auth id
-- role
-- created_at
+After the quadratic template works, define a clean extension point for:
 
-### Learning Objective
+1. Linear modelling.
+2. Trigonometric modelling.
 
-- id
-- topic
-- name
-- description
+Do not implement complex general-purpose symbolic mathematics unless the existing project already has suitable support.
 
-### Question
+For trigonometric modelling, use geometrically valid scenarios and explicit assumptions. For example, a right-triangle height-and-distance problem may use a tangent relationship, while a ramp may use sine or cosine depending on which sides and angle are specified.
 
-- id
-- learning_objective_id
-- difficulty
-- representation
-- context
-- prompt
-- expected_answer
-- tolerance
-- explanation
-- metadata
+Do not treat all scenarios as interchangeable wrappers around equations. A scenario must be compatible with the mathematical template and should not accidentally reveal the reasoning the student is meant to demonstrate.
 
-### Attempt
+Model interpretation and evaluation should eventually have templates that present a supplied model and ask the student to interpret its parameters, test its validity, or critique its assumptions.
 
-- id
-- user_id
-- question_id
-- submitted_answer
-- correctness
-- error_type
-- created_at
+## 8. Implement a small, controlled scenario library
 
-### Student Progress
+Create a modest initial collection of reviewed scenario definitions rather than a combinatorial generator.
 
-- user_id
-- learning_objective_id
-- attempts
-- correct_attempts
-- recent_accuracy
-- estimated_mastery
-- current_difficulty
+Potential contexts include:
 
-Design this properly rather than storing everything as arbitrary JSON.
+- Garden dimensions.
+- Sports-ground layouts.
+- Workshop dimensions.
+- Ramps and accessible paths.
+- Surveying and height measurements.
+- Rectangular event layouts.
 
-Use JSON only where flexible metadata is genuinely useful.
+Only include scenarios for which the required information and mathematical relationships are fully specified.
 
-Create migrations.
+Represent scenario-template compatibility explicitly. Do not randomly combine actors, objects, settings and relationships if the resulting situation would be implausible or mathematically inconsistent.
 
-Seed development data.
+Questions do not always need a narrative. For some modelling objectives, a diagram, table, graph or abstract mathematical representation is more appropriate.
 
----
+Clearly distinguish draft scenarios from reviewed and approved scenarios. Only approved content should enter the normal student question bank.
 
-# STAGE 3 — QUESTION ENGINE
+## 9. Validation and quality controls
 
-Create the initial A-level Maths question bank.
+Build validation into the generation workflow.
 
-Start with:
+At minimum, check:
 
-## SUVAT / constant acceleration
+**Structural validity**
 
-Approximately 30–50 questions.
+- Referenced objectives, templates and scenarios exist.
+- Template and scenario compatibility is satisfied.
+- Required parameters are present and correctly typed.
 
-Questions must have meaningful metadata:
+**Mathematical validity**
 
-- learning objective
-- difficulty
-- representation
-- context
-- common error types
+- Parameter constraints hold.
+- Units are consistent.
+- A valid solution exists where required.
+- The computed answer satisfies the original conditions.
+- Invalid or extraneous solutions are handled appropriately.
 
-Include variation such as:
+**Pedagogical validity**
 
-- direct numerical questions
-- word problems
-- unfamiliar contexts
-- multi-step questions
-- reverse problems
-- graph/interpretation questions where practical
+- The primary objective matches the capability actually assessed.
+- The prompt does not give away the intended reasoning unintentionally.
+- The expected answer and marking criteria are aligned.
 
-Do not create 50 superficial variations of the same question.
+**Presentation validity**
 
-Separate question content from application logic.
+- The question is clear and contains sufficient information.
+- There is no unintended ambiguity.
+- Relevant assumptions and units are communicated.
 
-Create validation so malformed questions cannot silently enter the system.
+Automate structural and mathematical checks where possible. Use tests and a review status for pedagogical quality; do not pretend that passing mathematical tests alone establishes educational quality.
 
----
+Do not make an LLM the sole validator.
 
-# STAGE 4 — MARKING ENGINE
+## 10. Student adaptation: prepare the data, avoid unsupported diagnosis
 
-Implement deterministic numerical marking.
+Connect generated questions to the existing student model if the current architecture supports it.
 
-Support:
+Record objective-level evidence rather than storing only an overall topic score. A student who can solve a quadratic equation may still struggle to construct one from a word problem.
 
-- numeric parsing
-- tolerance
-- correct
-- incorrect
-- invalid/unparseable
+For the initial version:
 
-Create unit tests.
+- Record attempts and marking outcomes.
+- Preserve which objectives each question assesses.
+- Record hints and scaffolding where available.
+- Keep evidence distinguishable from the student's estimated mastery.
+- Avoid declaring a prerequisite weakness from one incorrect answer.
+- Do not implement an elaborate Bayesian or machine-learning mastery model unless the existing MVP already has one and it is appropriate.
 
-Do not use an LLM for basic numerical marking.
+A simple, transparent baseline is sufficient initially. The architecture should permit future refinement.
 
-The result should be deterministic and explainable.
+## 11. User experience
 
----
+Integrate the functionality into the existing application rather than creating an isolated demo unless that is genuinely the best fit.
 
-# STAGE 5 — ERROR CLASSIFICATION
+The student should be able to:
 
-Implement a simple error-classification system.
+1. Open a modelling practice area.
+2. See a question with clear mathematical notation and units.
+3. Submit an answer.
+4. Receive appropriate marking or feedback.
+5. Review the worked solution.
+6. Have the attempt recorded against the relevant objectives.
+7. Attempt a valid variation.
 
-Start with deterministic categories such as:
+Prioritise correctness, clarity and a functional end-to-end experience over visual polish. Reuse existing UI components and styles.
 
-```text
-CORRECT
+If free-form working cannot be marked reliably, start with a structured response format that captures variables, equation construction and final answer separately. Do not claim to assess reasoning that the implementation does not actually inspect.
 
-ARITHMETIC_ERROR
+## 12. Testing and acceptance criteria
 
-VARIABLE_IDENTIFICATION_ERROR
+Add or update tests for the new behaviour.
 
-FORMULA_SELECTION_ERROR
+The work is complete when:
 
-SIGN_ERROR
+- The application consistently presents itself as Grasp.
+- Existing core MVP functionality still works.
+- The modelling objective catalogue is represented in code or the existing data layer.
+- The quadratic template generates valid, reproducible questions.
+- At least 20 generated instances pass automated structural and mathematical validation across a sensible range of parameters.
+- Each instance has a correct expected answer and worked solution.
+- Invalid parameters are rejected.
+- The negative quadratic root is not accepted as a physical width.
+- The marking process distinguishes equation construction, solving and contextual interpretation where supported.
+- Question attempts can be associated with the objectives they assess.
+- The relevant tests pass.
+- The README explains the architecture, how to run tests, how to generate questions, and how to add a template.
+- Any incomplete features, migrations or manual repository-renaming steps are documented honestly.
 
-UNIT_ERROR
+Do not satisfy the 20-instance criterion by writing 20 hard-coded copies. Generate them through the same reusable engine.
 
-MULTI_STEP_ERROR
+## 13. Working method and final report
 
-UNKNOWN_ERROR
-```
+Work in this order:
 
-Do not pretend the system can diagnose errors that it cannot actually infer.
+1. Inspect the repository and current behaviour.
+2. Produce a concise plan based on the actual code.
+3. Implement the product rename and objective catalogue.
+4. Implement the quadratic question template and generation pipeline.
+5. Integrate the question flow into the application.
+6. Add tests and run the relevant checks.
+7. Update documentation.
 
-Where the available answer data is insufficient to determine a specific error, use:
+Keep changes incremental and consistent with the repository's conventions. Do not delete existing data or make destructive schema changes without a safe migration strategy.
 
-```text
-UNKNOWN_ERROR
-```
+At the end, report:
 
-The architecture should allow a more sophisticated classifier to replace this later.
+- What you inspected.
+- What you changed.
+- The main architectural decisions.
+- The files and database/schema changes involved.
+- Tests run and their actual results.
+- Any remaining limitations.
+- Exact manual steps for renaming the remote Git repository, if necessary.
+- The recommended next implementation step.
 
----
-
-# STAGE 6 — ADAPTIVE ENGINE
-
-This is the most important component.
-
-Create a separate Python module/package:
-
-```text
-backend/
-    adaptive/
-        selector.py
-        error_classifier.py
-        progress.py
-        models.py
-```
-
-The engine should expose a clean interface such as:
-
-```text
-next_question(student_state, candidate_questions)
-```
-
-The first implementation must be deterministic.
-
-The selection logic should consider:
-
-- learning objective
-- recent correctness
-- estimated mastery
-- current difficulty
-- error type
-- representation
-- recent question history
-- representation diversity
-
-### Core behaviour
-
-If the student gets a question wrong:
-
-Prefer a question that:
-
-- targets the same learning objective
-- addresses the relevant weakness where possible
-- changes the surface representation
-- does not unnecessarily increase difficulty
-
-If the student succeeds:
-
-Prefer a question that:
-
-- retains the underlying objective
-- introduces greater representation/context variation
-- may increase difficulty gradually
-
-Avoid repeatedly serving essentially identical questions.
-
-Create tests for the adaptive engine.
-
-Include deterministic test cases demonstrating expected behaviour.
-
----
-
-# STAGE 7 — STUDENT EXPERIENCE
-
-Build the actual student flow.
-
-Required screens:
-
-### 1. Dashboard
-
-Show:
-
-- current topics
-- recent performance
-- progress
-- continue practice
-
-### 2. Practice
-
-Show:
-
-- question
-- relevant mathematical formatting
-- answer input
-- submit button
-
-### 3. Feedback
-
-Show:
-
-- correct/incorrect
-- explanation
-- relevant learning objective
-- useful feedback
-
-Then:
-
-```text
-Continue → next adaptive question
-```
-
-### 4. Progress
-
-Show:
-
-- accuracy
-- attempts
-- learning objectives
-- progression over time
-- representation performance where meaningful
-
-Keep the UI clean.
-
-Do not waste development time on gamification.
-
----
-
-# STAGE 8 — TEACHER / DEMO DASHBOARD
-
-Create a lightweight teacher/demo view.
-
-It should allow me to demonstrate the product to students.
-
-Show:
-
-- number of attempts
-- accuracy
-- performance by learning objective
-- performance by representation
-- common error types
-- progression over time
-
-This does not need sophisticated teacher administration.
-
-The objective is to make the learning data visible.
-
----
-
-# STAGE 9 — DATA + PRODUCT INSTRUMENTATION
-
-Ensure every important student interaction produces useful structured data.
-
-We need to eventually answer:
-
-1. What questions are students getting wrong?
-2. Which learning objectives cause problems?
-3. Which representations cause problems?
-4. Does performance improve after changing representation?
-5. Does performance remain strong as unfamiliarity increases?
-6. Does the adaptive engine produce sensible sequences?
-
-Do not fabricate any metrics.
-
-Build the system so these metrics can later be measured from real student usage.
-
----
-
-# STAGE 10 — TESTING + SECURITY
-
-Before deployment:
-
-### Backend
-
-- unit tests
-- adaptive engine tests
-- marking tests
-- API tests
-- database tests where appropriate
-
-### Frontend
-
-- core component tests
-- practice flow tests where practical
-
-### Security
-
-Audit:
-
-- authentication
-- authorisation
-- user ownership
-- database access
-- API input validation
-- secrets
-- CORS
-- environment variables
-
-A student must not be able to access another student's private data.
-
-Do not expose database credentials to the frontend.
-
----
-
-# STAGE 11 — DEPLOYMENT
-
-Deploy:
-
-```text
-Next.js → Vercel
-
-FastAPI → Render
-
-PostgreSQL → managed PostgreSQL provider
-```
-
-Set production environment variables securely.
-
-Configure:
-
-- frontend API URL
-- backend CORS
-- database connection
-- authentication
-- production migrations
-
-Verify:
-
-```text
-Browser
-  ↓
-Vercel
-  ↓
-FastAPI
-  ↓
-PostgreSQL
-```
-
-works in production.
-
-Test the full student journey against the deployed application.
-
----
-
-# STAGE 12 — REAL STUDENT TEST
-
-Once deployment works, STOP BUILDING.
-
-Put the MVP in front of real students.
-
-Collect evidence on:
-
-- usability
-- question difficulty
-- confusing feedback
-- whether adaptation feels meaningful
-- which question representations cause problems
-- whether students understand why they received the next question
-
-Do not immediately add features.
-
-Use actual observations to decide what to change.
-
----
-
-# FUTURE — DO NOT IMPLEMENT YET
-
-The architecture should leave room for:
-
-### Phase 2
-
-- larger question bank
-- better error classification
-- richer mathematical representations
-- teacher authoring tools
-
-### Phase 3
-
-- statistical learner model
-- knowledge tracing
-- ML-based question selection
-
-### Phase 4
-
-Potential experimentation with:
-
-- contextual bandits
-- reinforcement learning
-- personalised difficulty models
-- LLM-assisted question generation
-- LLM-assisted error diagnosis
-
-But none of these belong in the initial MVP unless they become necessary.
-
----
-
-# ENGINEERING PRINCIPLES
-
-Throughout the project:
-
-1. Prefer simple working systems.
-2. Keep the adaptive engine independent from the UI.
-3. Keep business logic out of React components.
-4. Keep question data separate from application code.
-5. Make adaptive decisions explainable.
-6. Make important behaviour testable.
-7. Do not invent metrics.
-8. Do not build features merely because they sound impressive.
-9. Optimise for getting the MVP into students' hands.
-10. Preserve a clean architecture so the project can evolve into an AI/ML system later.
-
----
-
-# FINAL DELIVERABLE
-
-At completion, I should have:
-
-- working local application
-- working adaptive engine
-- 30–50 curated questions
-- authentication
-- student practice flow
-- progress tracking
-- teacher/demo dashboard
-- tests
-- production deployment
-- clean README
-- architecture documentation
-- instructions for running locally
-- deployment instructions
-- explanation of the adaptive algorithm
-
-The product must be genuinely usable by a student.
-
-**Build, test, verify and iterate. Do not spend time explaining what could theoretically be built when the next useful action is implementation.**
+**Priorities:** correctness first, preserve existing functionality second, maintainability third, polish fourth. Build a small, working foundation that Grasp can grow from rather than an overengineered system.

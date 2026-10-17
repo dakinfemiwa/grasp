@@ -15,4 +15,4 @@ def health_check(db: Session = Depends(get_db)) -> dict[str, str]:
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Database connection unavailable",
         ) from exc
-    return {"status": "ok", "service": "flexa-api", "database": "ok"}
+    return {"status": "ok", "service": "grasp-api", "database": "ok"}
