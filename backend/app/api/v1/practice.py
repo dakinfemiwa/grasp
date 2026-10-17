@@ -19,16 +19,19 @@ from app.schemas.practice import (
     AttemptIn,
     AttemptOut,
     CreateInstanceIn,
+    EvidenceSummaryOut,
     HintOut,
     InstanceOut,
     MarkedStepOut,
+    ObjectiveEvidenceOut,
     ObjectiveTag,
+    RecentAttemptOut,
     ResponseFieldOut,
     ScenarioOut,
     TemplateOut,
     WorkedStepOut,
 )
-from app.services.practice import get_or_create_instance, objective_outcomes, record_attempt
+from app.services.practice import evidence_summary, get_or_create_instance, objective_outcomes, record_attempt
 
 router = APIRouter(tags=["practice"])
 
@@ -166,4 +169,42 @@ def submit_attempt(
         objective_outcomes=objective_outcomes(steps),
         expected_answer=instance.expected_answer,
         worked_solution=[WorkedStepOut(**s) for s in instance.worked_solution],
+    )
+
+
+def _titles(template_id: str, version: int, scenario_id: str, scenario_version: int) -> tuple[str, str]:
+    try:
+        template_title = get_template(template_id, version).title
+    except UnknownTemplate:
+        template_title = template_id
+    try:
+        scenario_title = get_scenario(scenario_id, scenario_version).title
+    except UnknownScenario:
+        scenario_title = scenario_id
+    return template_title, scenario_title
+
+
+@router.get("/practice/evidence/summary", response_model=EvidenceSummaryOut)
+def read_evidence_summary(db: Session = Depends(get_db), user: User = Depends(get_current_user)) -> EvidenceSummaryOut:
+    summary = evidence_summary(db, user)
+    recent = []
+    for e in summary["recent"]:
+        i = e.instance
+        template_title, scenario_title = _titles(i.template_id, i.template_version, i.scenario_id, i.scenario_version)
+        recent.append(
+            RecentAttemptOut(
+                evidence_id=e.id,
+                instance_id=i.id,
+                template_id=i.template_id,
+                template_title=template_title,
+                scenario_title=scenario_title,
+                attempt_number=e.attempt_number,
+                outcome=e.outcome,
+                created_at=e.created_at,
+            )
+        )
+    return EvidenceSummaryOut(
+        total_attempts=summary["total_attempts"],
+        objectives=[ObjectiveEvidenceOut(**o) for o in summary["objectives"]],
+        recent=recent,
     )

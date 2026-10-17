@@ -318,3 +318,12 @@ Scenario library with explicit template compatibility, plus linear and trig temp
 ### Checks
 - `pytest`: **201 passed** (new `test_trig_template.py`: docstring example, 20 valid instances per scenario with exact-value checks, all three angles occur, 7 invalid-param cases, 5 accepted + 4 rejected model forms, top-start feedback, extraneous/negative times rejected, missing second time, step separation, scenario units and datum; trig parser tests).
 - No schema change (`alembic check` clean). CLI `--save`: 20/20 valid trig instances stored on Neon. The registry now has 3 templates and 13 scenarios.
+
+---
+
+## Stage 6a — Evidence summary endpoint
+
+- `GET /api/v1/practice/evidence/summary` (authenticated, current user only): for every catalogue objective, counts of correct / incorrect / missing evidence plus the last outcome and when; total attempts; the 5 most recent attempts with template and scenario titles.
+- Deliberately transparent: raw counts with an explicit note ("not an estimate of mastery"). No mastery model and no prerequisite diagnosis (brief §10). `student_progress` is untouched.
+- Aggregation is in SQL (grouped counts), scoped by `user_id`.
+- `pytest`: **203 passed** (summary counts across two attempts, the unassessed objective stays at zero, recent order, per-user isolation, 401 without a token). Live: 401 without a token.

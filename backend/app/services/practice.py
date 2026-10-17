@@ -122,3 +122,55 @@ def record_attempt(
     db.add(evidence)
     db.commit()
     return evidence, steps
+
+
+def evidence_summary(db: Session, user: User, recent_limit: int = 5) -> dict[str, Any]:
+    """Per-objective evidence counts and the latest attempts, for one user.
+
+    Deliberately transparent: raw counts and the last outcome, no mastery estimate and no
+    prerequisite diagnosis (a single wrong answer says little on its own).
+    """
+    objectives = list(db.scalars(select(LearningObjective).order_by(LearningObjective.code)))
+    counts: dict[tuple[int, StepOutcome], int] = {
+        (objective_id, outcome): n
+        for objective_id, outcome, n in db.execute(
+            select(EvidenceObjective.objective_id, EvidenceObjective.outcome, func.count())
+            .join(Evidence, Evidence.id == EvidenceObjective.evidence_id)
+            .where(Evidence.user_id == user.id)
+            .group_by(EvidenceObjective.objective_id, EvidenceObjective.outcome)
+        )
+    }
+    last: dict[int, tuple[StepOutcome, Any]] = {}
+    for objective_id, outcome, created_at in db.execute(
+        select(EvidenceObjective.objective_id, EvidenceObjective.outcome, Evidence.created_at)
+        .join(Evidence, Evidence.id == EvidenceObjective.evidence_id)
+        .where(Evidence.user_id == user.id)
+        .order_by(Evidence.created_at.desc(), Evidence.id.desc())
+    ):
+        last.setdefault(objective_id, (outcome, created_at))
+
+    recent = list(
+        db.scalars(
+            select(Evidence)
+            .where(Evidence.user_id == user.id)
+            .order_by(Evidence.created_at.desc(), Evidence.id.desc())
+            .limit(recent_limit)
+        )
+    )
+    total = db.scalar(select(func.count()).select_from(Evidence).where(Evidence.user_id == user.id)) or 0
+    return {
+        "total_attempts": total,
+        "objectives": [
+            {
+                "id": o.code,
+                "title": o.title,
+                "correct": counts.get((o.id, StepOutcome.CORRECT), 0),
+                "incorrect": counts.get((o.id, StepOutcome.INCORRECT), 0),
+                "missing": counts.get((o.id, StepOutcome.MISSING), 0),
+                "last_outcome": last.get(o.id, (None, None))[0],
+                "last_at": last.get(o.id, (None, None))[1],
+            }
+            for o in objectives
+        ],
+        "recent": recent,
+    }

@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -95,3 +96,33 @@ class AttemptOut(BaseModel):
     objective_outcomes: dict[str, StepOutcome]
     expected_answer: dict[str, Any]
     worked_solution: list[WorkedStepOut]
+
+
+class ObjectiveEvidenceOut(BaseModel):
+    """Counts of recorded evidence for one objective. Not a mastery estimate."""
+
+    id: str
+    title: str
+    correct: int
+    incorrect: int
+    missing: int
+    last_outcome: StepOutcome | None
+    last_at: datetime | None
+
+
+class RecentAttemptOut(BaseModel):
+    evidence_id: int
+    instance_id: int
+    template_id: str
+    template_title: str
+    scenario_title: str
+    attempt_number: int
+    outcome: EvidenceOutcome
+    created_at: datetime
+
+
+class EvidenceSummaryOut(BaseModel):
+    note: str = "Counts of recorded evidence per objective. This is not an estimate of mastery."
+    total_attempts: int
+    objectives: list[ObjectiveEvidenceOut]
+    recent: list[RecentAttemptOut]

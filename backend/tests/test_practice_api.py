@@ -53,6 +53,7 @@ def params_of(db: Session, instance_id: int) -> dict:
         ("post", "/api/v1/practice/instances"),
         ("get", "/api/v1/practice/instances/1"),
         ("post", "/api/v1/practice/instances/1/attempts"),
+        ("get", "/api/v1/practice/evidence/summary"),
     ],
 )
 def test_practice_requires_authentication(client: TestClient, method: str, path: str) -> None:
@@ -184,3 +185,30 @@ def test_draft_templates_are_not_served_outside_development(client: TestClient, 
     app.dependency_overrides[get_settings] = lambda: Settings(environment="production")
     assert client.get("/api/v1/templates", headers=headers).json() == []
     assert client.post("/api/v1/practice/instances", json={}, headers=headers).status_code == 404
+
+
+def test_evidence_summary_counts_per_objective_and_is_per_user(
+    client: TestClient, db: Session, headers: dict[str, str], make_token: Callable[..., str]
+) -> None:
+    empty = client.get("/api/v1/practice/evidence/summary", headers=headers).json()
+    assert empty["total_attempts"] == 0 and empty["recent"] == []
+    assert len(empty["objectives"]) == 11 and all(o["last_outcome"] is None for o in empty["objectives"])
+    assert "not an estimate of mastery" in empty["note"]
+
+    instance = create(client, headers)
+    url = f"/api/v1/practice/instances/{instance['id']}/attempts"
+    good = correct_response(params_of(db, instance["id"]))
+    client.post(url, json={"response": {**good, "width": min(good["roots"])}}, headers=headers)  # MOD-09 wrong
+    client.post(url, json={"response": good}, headers=headers)
+
+    summary = client.get("/api/v1/practice/evidence/summary", headers=headers).json()
+    by_id = {o["id"]: o for o in summary["objectives"]}
+    assert summary["total_attempts"] == 2
+    assert by_id["MOD-09"] == {**by_id["MOD-09"], "correct": 1, "incorrect": 1, "last_outcome": "correct"}
+    assert by_id["MOD-05"]["correct"] == 2
+    assert by_id["MOD-11"]["correct"] == by_id["MOD-11"]["incorrect"] == 0  # not assessed
+    assert [r["attempt_number"] for r in summary["recent"]] == [2, 1]
+    assert summary["recent"][0]["template_title"] == "Rectangle dimensions from area"
+
+    other = {"Authorization": f"Bearer {make_token(sub='user_other')}"}
+    assert client.get("/api/v1/practice/evidence/summary", headers=other).json()["total_attempts"] == 0
