@@ -25,23 +25,23 @@ Next.js 16 (app/, components/, lib/api.ts)  ──Clerk JWT──▶  FastAPI /a
 
 ### Core concepts (kept separate)
 
-| Concept | Where | Notes |
-|---|---|---|
+| Concept            | Where                                                               | Notes                                                                                                                                       |
+| ------------------ | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
 | Learning objective | `backend/content/objectives/modelling.yaml` → `learning_objectives` | MOD-01..MOD-11, Grasp-internal ids (not Edexcel ids); success criteria, prerequisites (a DAG), domains, evidence types, Edexcel `spec_refs` |
-| Question template | `backend/app/engine/templates/*.py` (code, no table) | Typed params, constraints, prompt rendering, solution, answer spec, step marking, validation, review status; immutable `(id, version)` |
-| Scenario | `backend/content/scenarios/*.yaml` (versioned YAML, no table) | Context + wording slots, explicit compatible template versions, assumptions, narrowing-only parameter bounds, review status |
-| Generated instance | `question_instances` + `question_instance_objectives` | Template + scenario ids/versions, seed, parameters, prompt, expected answer, worked solution, validation results, objective tags |
-| Student evidence | `student_evidence` + `evidence_objectives` | Structured response, overall + per-step marking, hints used, attempt number, time; per-objective outcome |
+| Question template  | `backend/app/engine/templates/*.py` (code, no table)                | Typed params, constraints, prompt rendering, solution, answer spec, step marking, validation, review status; immutable `(id, version)`      |
+| Scenario           | `backend/content/scenarios/*.yaml` (versioned YAML, no table)       | Context + wording slots, explicit compatible template versions, assumptions, narrowing-only parameter bounds, review status                 |
+| Generated instance | `question_instances` + `question_instance_objectives`               | Template + scenario ids/versions, seed, parameters, prompt, expected answer, worked solution, validation results, objective tags            |
+| Student evidence   | `student_evidence` + `evidence_objectives`                          | Structured response, overall + per-step marking, hints used, attempt number, time; per-objective outcome                                    |
 
 `student_progress` (a per-objective rollup table) exists but nothing writes to it yet: Grasp shows evidence counts, not a mastery estimate.
 
 ### Templates
 
-| Template | Domain | Edexcel 9MA0 refs | Marked steps (objective) |
-|---|---|---|---|
-| `QUAD-RECT-AREA` | quadratic | 2.3, OT3.1, OT2.3 | define variables (MOD-02), form equation (MOD-05), solve (MOD-07), reject negative root (MOD-09), interpret (MOD-08) |
-| `LIN-TWO-POINT` | linear | 3.1, OT3.2–3.4 | gradient (MOD-07), equation (MOD-05), gradient meaning (MOD-08), prediction (MOD-07), reliability (MOD-10) |
-| `TRIG-WHEEL-HEIGHT` | trigonometric | 5.9, 5.7, 2.11, OT3.5 | features (MOD-01), model (MOD-05), solve (MOD-07), times in first revolution (MOD-09), assumption (MOD-04) |
+| Template            | Domain        | Edexcel 9MA0 refs     | Marked steps (objective)                                                                                             |
+| ------------------- | ------------- | --------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `QUAD-RECT-AREA`    | quadratic     | 2.3, OT3.1, OT2.3     | define variables (MOD-02), form equation (MOD-05), solve (MOD-07), reject negative root (MOD-09), interpret (MOD-08) |
+| `LIN-TWO-POINT`     | linear        | 3.1, OT3.2–3.4        | gradient (MOD-07), equation (MOD-05), gradient meaning (MOD-08), prediction (MOD-07), reliability (MOD-10)           |
+| `TRIG-WHEEL-HEIGHT` | trigonometric | 5.9, 5.7, 2.11, OT3.5 | features (MOD-01), model (MOD-05), solve (MOD-07), times in first revolution (MOD-09), assumption (MOD-04)           |
 
 Thirteen scenarios cover gardens, workshops, marquees, sports grounds, taxi fares, °C→°F, phone plans, a cyclist, Ferris and observation wheels and a mill waterwheel. `spec_refs` are references for teachers, not a claim of complete specification coverage.
 
@@ -107,11 +107,3 @@ cd backend
 .venv\Scripts\python.exe -m pytest -q
 .venv\Scripts\python.exe -m alembic check
 ```
-
-## Renaming the repository
-
-The GitHub repository is still `dakinfemiwa/flexa`. Renaming it is a manual step:
-
-1. On GitHub: `dakinfemiwa/flexa` → Settings → Repository name → `grasp`. GitHub redirects the old URL in the meantime.
-2. Locally: `git remote set-url origin https://github.com/dakinfemiwa/grasp.git`
-3. Optional: rename the Clerk application and Neon project display names (keys and connection strings are unaffected).
