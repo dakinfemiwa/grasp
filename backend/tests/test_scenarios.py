@@ -1,8 +1,9 @@
+import re
 from typing import Any
 
 import pytest
 
-from app.engine import build, generate, get_template
+from app.engine import all_templates, build, generate, get_template
 from app.engine.base import InvalidParameters
 from app.engine.scenarios import (
     compatible_scenarios,
@@ -145,3 +146,24 @@ def test_abstract_scenario_reproduces_pre_library_instances() -> None:
     q = generate(QUAD, 1, get_scenario("SCN-RECT-ABSTRACT"))
     assert q.parameters == {"width": 8, "difference": 2, "area": 80}
     assert q.prompt.startswith("A rectangle has a length that is 2 cm greater than its width. Its area is 80 cm².")
+
+
+@pytest.mark.parametrize(
+    "template", [t for t in all_templates() if not t.id.startswith("TEST-")], ids=lambda t: t.id
+)
+def test_every_template_is_wired_to_the_library(template: Any) -> None:
+    """Default scenario exists and is compatible; each scenario gives valid instances; spec refs are well-formed."""
+    default = get_scenario(template.default_scenario)
+    assert default.compatibility(template.id, template.version) is not None
+    assert compatible_scenarios(template)
+    assert template.spec_refs and all(re.fullmatch(r"OT\d\.\d|\d{1,2}\.\d{1,2}", r) for r in template.spec_refs)
+    assert {c.step for c in template.marking_criteria} == {
+        s.step for s in template.mark(*_expected(template, default))
+    }
+
+
+def _expected(template: Any, scenario: Any) -> tuple[Any, Any, Any]:
+    q = generate(template, 1, scenario)
+    params = template.params_model.model_validate(q.parameters)
+    slots = template.slots_model.model_validate(scenario.compatibility(template.id, template.version).slots)
+    return params, slots, template.expected_answer(params, slots)

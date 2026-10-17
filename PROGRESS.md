@@ -14,8 +14,8 @@ Pure modelling without calculus); the stage map from Stage 3 on follows §13 of 
 | 5a — Edexcel spec refs + scenario library | ✅ Done (2026-10-17) — verified against Neon |
 | 5b — Linear template LIN-TWO-POINT (spec 3.1) | ✅ Done (2026-10-17) |
 | 5c — Trig template TRIG-WHEEL-HEIGHT (spec 5.9, 5.7, 2.11) | ✅ Done (2026-10-17) |
-| 6 — Student UI: modelling practice, structured response, feedback, worked solution, variation | ⏭ Next |
-| 7 — Tests sweep, README/architecture docs, final report (+ deployment, if still wanted) | Not started |
+| 6 — Student UI + evidence summary (6a backend, 6b frontend) | ✅ Done (2026-10-17) — browser sign-in check pending (user) |
+| 7 — Tests sweep, README/architecture docs, final report | ✅ Done (2026-10-17) |
 
 **Decision (2026-10-17):** Generation engine, validation and marking live in the **Python backend**
 (deterministic, no LLM). This departs from the brief's "TypeScript" wording in favour of its
@@ -348,3 +348,64 @@ Scenario library with explicit template compatibility, plus linear and trig temp
 - `npx tsc --noEmit`, `npm run lint`, clean `npm run build`: all pass.
 - **Not yet verified by me:** a signed-in browser session end-to-end, because I can't sign in to your Clerk account. Both servers are started for you to try.
 - Known minor inefficiency: the two dashboard evidence cards each fetch the summary (two small requests).
+
+---
+
+## Stage 7 — Tests sweep, docs, final report
+
+### Tests sweep
+- Added a cross-cutting guard (`test_every_template_is_wired_to_the_library`): every real template has a compatible default scenario, at least one scenario, well-formed spec refs, and marking that covers all of its criteria.
+- Found: `.gitignore`'s `.env*` rule meant `.env.example` and `backend/.env.example` had never been committed, so a fresh clone had no env template. Both hold placeholders only; they are now un-ignored. Real `.env`, `.env.local` and `backend/.env` remain ignored (checked with `git check-ignore`).
+- `pytest`: **206 passed**. Frontend: `tsc`, lint, build clean (Stage 6b).
+
+### Docs
+- `README.md` rewritten: architecture diagram; the five core concepts and where each lives; template table with Edexcel refs and marked steps; review-status rule (and the `ENVIRONMENT=production` warning); run locally; generating questions; adding a template; adding a scenario; quality checks; repository rename steps.
+
+### Final report (brief §13)
+
+**Inspected.** Next.js 16 frontend (Clerk, placeholder dashboard), FastAPI backend, Neon/Alembic pipeline, YAML seeder, test fixtures; the old SUVAT/Flexa content; the official Edexcel 9MA0 Issue 4 specification (Pure content 2.3, 2.11, 3.1, 5.7, 5.9 and overarching themes OT1–OT3).
+
+**Changed.**
+- Rename Flexa → Grasp (targeted).
+- MOD-01..11 objective catalogue (YAML → DB, DAG prerequisites, spec refs).
+- Deterministic engine: templates in code, seeded generation, generic + template validation, safe expression/equation/relation parser with degree trig.
+- Three templates: quadratic, linear and trigonometric, each anchored to the spec.
+- 13 versioned scenarios with explicit compatibility.
+- Instance and evidence schema with objective-level evidence.
+- Practice API and evidence summary.
+- Student UI: practice, feedback, worked solution, variation, progress.
+
+**Key decisions.**
+- Engine in Python, not TypeScript, to reuse the existing backend (agreed with the user).
+- Templates are code and scenarios are versioned YAML; neither has a table. Instances record (template, scenario, versions, seed) so they regenerate exactly.
+- Marking is structured, per step, and tied to objectives, with follow-through where an earlier error shouldn't cost a later step.
+- Progress is shown as evidence counts, not mastery.
+- Drafts are served only in development.
+
+**Schema / migrations.**
+- 0001: core schema.
+- 0002: catalogue reshape + `objective_prerequisites`, SUVAT retired; aborts if attempts exist.
+- 0003: `questions`/`attempts` → `question_instances`, `question_instance_objectives`, `student_evidence`, `evidence_objectives`; refuses to drop non-empty tables.
+- 0004: `spec_refs`; scenario id/version on instances (backfilled), with a unique generation key.
+
+All four round-trip on Neon with `alembic check` clean. Neon currently holds 11 objectives, 9 prerequisite edges, and 60 instances (20 per template).
+
+**Tests run.** `pytest` 206 passed; `tsc --noEmit`, `npm run lint`, `npm run build` clean; live API returns 401 without a token on every protected endpoint.
+
+**Remaining limitations.**
+- All templates and scenarios are `draft` until a teacher reviews them.
+- The signed-in browser loop hasn't been verified by me (it needs your Clerk login).
+- Only structured answers are marked, not free-form working.
+- No mastery model; `student_progress` is unused.
+- Prompts are plain Unicode (no LaTeX rendering).
+- The parser is numeric-equivalence based, not a CAS.
+- Not yet built: interpretation/critique-of-a-given-model templates (brief §7) and tides/sunlight trig models (spec 2.11/5.9).
+- No deployment config.
+- The two dashboard evidence cards fetch the summary twice.
+
+**Manual repository rename.** See README → "Renaming the repository" (GitHub Settings → name `grasp`, then `git remote set-url origin https://github.com/dakinfemiwa/grasp.git`).
+
+**Recommended next step.**
+1. Run the practice loop signed in, then have a teacher review the three templates and 13 scenarios and mark the approved ones `approved`.
+2. Add an "interpret / critique a supplied model" template (MOD-08, MOD-10; spec 2.11 limitations and refinements).
+3. Plan deployment (Render + Vercel, `ENVIRONMENT=production`).
