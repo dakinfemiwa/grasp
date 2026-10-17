@@ -1,8 +1,7 @@
 import { defineConfig } from "@neon/config/v1";
 
 export default defineConfig({
-  // Declare your Neon services here
-  auth: true,
+  // Declare your Neon services here. Auth is handled by Clerk, not Neon Auth.
   // Branch policy: per-branch tuning
   branch: (branch) => {
     if (branch.isDefault) {

@@ -1,20 +1,31 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.v1.health import router as health_router
+from app.api.v1.router import api_router
 from app.core.config import get_settings
-from app.core.errors import unhandled_exception_handler
+from app.core.errors import register_error_handlers
 
-settings = get_settings()
-app = FastAPI(title=settings.app_name, version="0.1.0")
-app.add_exception_handler(Exception, unhandled_exception_handler)
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[settings.frontend_url],
-    allow_credentials=True,
-    allow_methods=["GET"],
-    allow_headers=["*"],
-)
+def create_app() -> FastAPI:
+    settings = get_settings()
+    app = FastAPI(title=settings.app_name, version="0.1.0")
 
-app.include_router(health_router, prefix="/api/v1")
+    register_error_handlers(app)
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.cors_origins,
+        allow_credentials=True,
+        allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
+        allow_headers=["Authorization", "Content-Type"],
+    )
+
+    @app.get("/health", tags=["health"])
+    def liveness() -> dict[str, str]:
+        """Process liveness only (used by Render); /api/v1/health also checks the database."""
+        return {"status": "ok"}
+
+    app.include_router(api_router)
+    return app
+
+
+app = create_app()

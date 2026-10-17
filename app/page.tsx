@@ -104,14 +104,14 @@ export default async function Home() {
             </a>
             <a
               className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-slate-400 transition hover:bg-slate-900 hover:text-slate-100"
-              href="#practice"
+              href="/practice"
             >
               <BookOpen className="size-4" />
               Practice
             </a>
             <a
               className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-slate-400 transition hover:bg-slate-900 hover:text-slate-100"
-              href="#progress"
+              href="/progress"
             >
               <BarChart3 className="size-4" />
               Progress
@@ -185,7 +185,7 @@ export default async function Home() {
                   Continue with a question on SUVAT fundamentals. Same skill, a
                   fresh representation.
                 </p>
-                <a href="#practice" className={cn(buttonVariants(), "mt-7")}>
+                <a href="/practice" className={cn(buttonVariants(), "mt-7")}>
                   Continue practice <ChevronRight className="size-4" />
                 </a>
                 <div className="mt-8 flex items-center gap-3 text-xs text-slate-400">

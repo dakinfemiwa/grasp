@@ -3,8 +3,7 @@
 import {
     SignInButton,
     SignUpButton,
-    SignedIn,
-    SignedOut,
+    Show,
     UserButton,
 } from "@clerk/nextjs";
 
@@ -14,7 +13,7 @@ import { cn } from "@/lib/utils";
 export function AuthControls() {
   return (
     <div className="flex items-center gap-2">
-      <SignedOut>
+      <Show when="signed-out">
         <SignInButton mode="modal">
           <button
             className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
@@ -27,10 +26,10 @@ export function AuthControls() {
             Create account
           </button>
         </SignUpButton>
-      </SignedOut>
-      <SignedIn>
+      </Show>
+      <Show when="signed-in">
         <UserButton />
-      </SignedIn>
+      </Show>
     </div>
   );
 }

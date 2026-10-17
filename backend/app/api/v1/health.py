@@ -8,9 +8,8 @@ router = APIRouter(tags=["health"])
 
 @router.get("/health")
 def health_check(db: Session = Depends(get_db)) -> dict[str, str]:
-    del db
     try:
-        check_database_connection()
+        check_database_connection(db)
     except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
