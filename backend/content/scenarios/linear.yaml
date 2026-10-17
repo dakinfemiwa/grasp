@@ -1,0 +1,117 @@
+# Straight-line scenarios for LIN-TWO-POINT (Edexcel 9MA0 3.1: straight line models in context).
+# Template ranges: gradient_tenths 1-500, intercept 0-500, x1 0-200, gap 1-200, extrapolate 0-1.
+# `data` uses {x1} {y1} {x2} {y2}; `prediction` uses {x3}. Wording must not state the gradient
+# or intercept. review_status stays `draft` until a teacher has reviewed the scenario.
+
+scenarios:
+  - id: SCN-LIN-TAXI
+    version: 1
+    title: Taxi fares
+    description: A taxi charges a fixed fee plus a constant amount per mile.
+    entities: [taxi, journey]
+    relationships: [cost = fixed charge + rate × distance]
+    assumptions: [The fare increases at a constant rate per mile., There are no waiting or night charges.]
+    presentation: narrative
+    review_status: draft
+    compatible_templates:
+      - template: LIN-TWO-POINT
+        version: 1
+        slots:
+          data: "A taxi journey of {x1} miles costs £{y1} and a journey of {x2} miles costs £{y2}."
+          model: "Model the cost, £y, of a journey of x miles as a linear function."
+          prediction: "Use your model to estimate the cost of a journey of {x3} miles."
+          x_unit: miles
+          y_unit: "£"
+          gradient_meaning: the cost per mile
+          intercept_meaning: the fixed charge
+          distractor: the total cost of the journey
+        bounds:
+          gradient_tenths: {min: 10, max: 40}
+          intercept: {min: 2, max: 8}
+          x1: {min: 1, max: 10}
+          gap: {min: 2, max: 15}
+
+  - id: SCN-LIN-TEMPERATURE
+    version: 1
+    title: Celsius to Fahrenheit
+    description: Readings on the Celsius and Fahrenheit scales (Edexcel 3.1 guidance example).
+    entities: [thermometer, temperature scales]
+    relationships: [°F reading = rate × °C reading + offset]
+    assumptions: [The two scales are related linearly.]
+    presentation: narrative
+    review_status: draft
+    compatible_templates:
+      - template: LIN-TWO-POINT
+        version: 1
+        slots:
+          data: "A thermometer shows {y1} °F when the temperature is {x1} °C, and {y2} °F when it is {x2} °C."
+          model: "Model the reading in °F, y, as a linear function of the temperature in °C, x."
+          prediction: "Use your model to estimate the reading in °F when the temperature is {x3} °C."
+          x_unit: "°C"
+          y_unit: "°F"
+          gradient_meaning: the rise in °F for each degree Celsius
+          intercept_meaning: the °F reading at the freezing point of water
+          distractor: the temperature at which both scales agree
+        # The conversion is exactly 1.8 and 32; predictions stay inside the data because the
+        # "extrapolation is less reliable" judgement would mislead for an exact physical law.
+        bounds:
+          gradient_tenths: {min: 18, max: 18}
+          intercept: {min: 32, max: 32}
+          x1: {min: 0, max: 40}
+          gap: {min: 10, max: 60}
+          extrapolate: {min: 0, max: 0}
+
+  - id: SCN-LIN-PHONE
+    version: 1
+    title: Phone data plan
+    description: A monthly phone bill made of a fixed fee plus a charge per gigabyte.
+    entities: [phone plan, monthly bill]
+    relationships: [bill = fixed fee + rate × data used]
+    assumptions: [The charge per gigabyte is constant., There are no extra charges or caps.]
+    presentation: narrative
+    review_status: draft
+    compatible_templates:
+      - template: LIN-TWO-POINT
+        version: 1
+        slots:
+          data: "One month, using {x1} GB of data cost £{y1}; another month, using {x2} GB cost £{y2}."
+          model: "Model the monthly bill, £y, for x GB of data as a linear function."
+          prediction: "Use your model to estimate the bill for a month using {x3} GB."
+          x_unit: GB
+          y_unit: "£"
+          gradient_meaning: the cost per GB of data
+          intercept_meaning: the fixed monthly fee
+          distractor: the total monthly bill
+        bounds:
+          gradient_tenths: {min: 10, max: 50}
+          intercept: {min: 5, max: 20}
+          x1: {min: 1, max: 10}
+          gap: {min: 2, max: 20}
+
+  - id: SCN-LIN-CYCLIST
+    version: 1
+    title: Cyclist at constant speed
+    description: Distance from home against time for a cyclist at constant speed (Edexcel 3.1 example).
+    entities: [cyclist, journey]
+    relationships: [distance = starting distance + speed × time]
+    assumptions: [The cyclist rides at a constant speed., The cyclist rides directly away from home.]
+    presentation: narrative
+    review_status: draft
+    compatible_templates:
+      - template: LIN-TWO-POINT
+        version: 1
+        slots:
+          lead_in: A cyclist rides directly away from home at a constant speed.
+          data: "After {x1} minutes they are {y1} km from home, and after {x2} minutes they are {y2} km from home."
+          model: "Model their distance from home, y km, after x minutes as a linear function."
+          prediction: "Use your model to estimate their distance from home after {x3} minutes."
+          x_unit: min
+          y_unit: km
+          gradient_meaning: the cyclist's speed in km per minute
+          intercept_meaning: the cyclist's distance from home at the start
+          distractor: the time the journey takes
+        bounds:
+          gradient_tenths: {min: 2, max: 5}
+          intercept: {min: 0, max: 5}
+          x1: {min: 5, max: 20}
+          gap: {min: 10, max: 40}

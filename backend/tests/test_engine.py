@@ -81,7 +81,7 @@ class Doubling(QuestionTemplate[NParams, NSlots, NResponse]):
     def render_prompt(self, p: NParams, s: NSlots) -> str:
         return f"Double the {s.noun} {p.n}."
 
-    def expected_answer(self, p: NParams) -> NResponse:
+    def expected_answer(self, p: NParams, s: NSlots) -> NResponse:
         return NResponse(n=2 * p.n)
 
     def worked_solution(self, p: NParams, s: NSlots) -> list[WorkedStep]:
@@ -127,7 +127,7 @@ def test_misaligned_expected_answer_is_caught() -> None:
     class WrongAnswer(Doubling):
         id = "TEST-WRONG-ANSWER"
 
-        def expected_answer(self, p: NParams) -> NResponse:
+        def expected_answer(self, p: NParams, s: NSlots) -> NResponse:
             return NResponse(n=2 * p.n + 1)
 
     with pytest.raises(InvalidInstance, match="answer_marking_aligned"):

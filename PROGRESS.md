@@ -12,8 +12,8 @@ Pure modelling without calculus); the stage map from Stage 3 on follows §13 of 
 | 3 — Rename to Grasp + modelling objective catalogue | ✅ Done (2026-10-17) — verified against Neon |
 | 4 — Quadratic template engine + instance/evidence schema (generation, constraints, worked solution, structured marking, validation, ≥20 instances) | ✅ Done (2026-10-17) — verified against Neon |
 | 5a — Edexcel spec refs + scenario library | ✅ Done (2026-10-17) — verified against Neon |
-| 5b — Linear template LIN-TWO-POINT (spec 3.1) | ⏭ Next |
-| 5c — Trig template TRIG-WHEEL-HEIGHT (spec 5.9, 5.7, 2.11) | Not started |
+| 5b — Linear template LIN-TWO-POINT (spec 3.1) | ✅ Done (2026-10-17) |
+| 5c — Trig template TRIG-WHEEL-HEIGHT (spec 5.9, 5.7, 2.11) | ⏭ Next |
 | 6 — Student UI: modelling practice, structured response, feedback, worked solution, variation | Not started |
 | 7 — Tests sweep, README/architecture docs, final report (+ deployment, if still wanted) | Not started |
 
@@ -287,3 +287,19 @@ Scenario library with explicit template compatibility, plus linear and trig temp
 ### Checks
 - `pytest`: **131 passed** (new `test_scenarios.py`: library loads; 6 incompatibility + 5 malformed cases; bounds narrow sampling; out-of-bounds params rejected; 20 valid reproducible instances per scenario; deterministic pick covers the library; abstract scenario reproduces stored instances).
 - Neon: `upgrade` → `downgrade -1` → `upgrade` → `alembic check`: no drift. Seed: catalogue v2. CLI: 20/20 valid for each scenario. Live: endpoints → 401 without a token.
+
+---
+
+## Stage 5b — Linear template LIN-TWO-POINT v1 (Edexcel 3.1)
+
+- `backend/app/engine/templates/linear_two_point.py`. Two data points in context: find the gradient, form y = mx + c, interpret the gradient, predict, judge reliability (interpolation vs extrapolation). Primary MOD-05; secondary MOD-07, MOD-08, MOD-10. spec_refs 3.1, OT3.2, OT3.3, OT3.4.
+- Generation: gradient in tenths, intercept, x₁, gap and an extrapolate flag are sampled. x-values are multiples of a step (10 / gcd(gradient_tenths, 10)), so every y-value is a whole number. y-values are derived.
+- Marking (five steps): gradient (detects an inverted Δx/Δy); equation (any rearrangement or scaling of the line, via the new two-variable relation check); gradient meaning (a choice from scenario wording, sorted so position gives nothing away; detects confusion with the intercept); prediction (follow-through from the student's own equation); reliability. MOD-07 aggregates the gradient and prediction steps.
+- Template checks: distinct x-values, gradient recoverable from data, wrong reliability judgement is marked incorrect, prompt states exactly the data + prediction point, prompt doesn't name the gradient/intercept.
+- Scenarios (`content/scenarios/linear.yaml`, all draft): taxi fares, °C→°F (spec example; fixed at 1.8/32 and interpolation-only, because "extrapolation is less reliable" would mislead for an exact physical law), phone data plan, cyclist at constant speed (spec distance–time example).
+- `expr.py` rewritten around a small tokenizer: named variables (`x`, `y`, `t`), implicit multiplication, `compile_relation` + `proportional2` for two-variable equations. All existing parser tests still pass.
+- Engine API: `expected_answer(params, slots)` (the right answer can depend on scenario wording).
+
+### Checks
+- `pytest`: **162 passed** (new `test_linear_template.py`: docstring example, 20 valid instances per scenario, exact temperature conversion, both reliability cases occur, 7 invalid-param cases, 5 accepted + 4 rejected equation forms, step separation, follow-through, scenario-driven options, slot validation; relation-parser tests; API objective aggregation).
+- No schema change (`alembic check` clean). CLI `--save`: 20/20 valid linear instances stored on Neon.

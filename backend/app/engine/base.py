@@ -191,7 +191,7 @@ class QuestionTemplate[P: BaseModel, S: BaseModel, R: BaseModel](ABC):
     def render_prompt(self, params: P, slots: S) -> str: ...
 
     @abstractmethod
-    def expected_answer(self, params: P) -> R:
+    def expected_answer(self, params: P, slots: S) -> R:
         """A model response; marking it must give every step CORRECT (checked by validation)."""
 
     @abstractmethod

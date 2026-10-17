@@ -160,7 +160,7 @@ class QuadraticRectangleArea(QuestionTemplate[RectangleParams, RectangleSlots, R
             "Form an equation that can be used to find its dimensions, and determine the dimensions."
         )
 
-    def expected_answer(self, p: RectangleParams) -> RectangleResponse:
+    def expected_answer(self, p: RectangleParams, s: RectangleSlots) -> RectangleResponse:
         return RectangleResponse(
             variable="width",
             other_side=f"x + {p.difference}",
@@ -294,7 +294,7 @@ class QuadraticRectangleArea(QuestionTemplate[RectangleParams, RectangleSlots, R
 
     def checks(self, p: RectangleParams, s: RectangleSlots, prompt: str) -> list[ValidationCheck]:
         M, PED, PRES = ValidationCategory.MATHEMATICAL, ValidationCategory.PEDAGOGICAL, ValidationCategory.PRESENTATION
-        answer = self.expected_answer(p)
+        answer = self.expected_answer(p, s)
         assert answer.width is not None and answer.length is not None
         model = (lambda x: x * (x + p.difference), lambda _x: float(p.area))
         negative = -p.length

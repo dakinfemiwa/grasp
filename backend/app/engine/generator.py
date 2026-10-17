@@ -132,7 +132,7 @@ def _assemble(
         seed=seed,
         parameters=params.model_dump(mode="json"),
         prompt=prompt,
-        expected_answer=template.expected_answer(params).model_dump(mode="json"),
+        expected_answer=template.expected_answer(params, slots).model_dump(mode="json"),
         worked_solution=template.worked_solution(params, slots),
         primary_objective=template.primary_objective,
         secondary_objectives=template.secondary_objectives,
@@ -156,7 +156,7 @@ def validate(
     unknown = [o for o in template.objectives if o not in catalogue_ids()]
     criteria_objectives = {c.objective for c in template.marking_criteria}
     worked_objectives = {s.objective for s in template.worked_solution(params, slots)}
-    marked = template.mark(params, slots, template.expected_answer(params))
+    marked = template.mark(params, slots, template.expected_answer(params, slots))
     bounds = effective_bounds(template, scenario)
     not_correct = [m.step for m in marked if m.outcome is not StepOutcome.CORRECT]
     criteria_steps = [c.step for c in template.marking_criteria]

@@ -4,8 +4,10 @@ from app.engine.expr import (
     ExpressionError,
     compile_equation,
     compile_expression,
+    compile_relation,
     equivalent,
     proportional,
+    proportional2,
     satisfies,
 )
 
@@ -59,3 +61,18 @@ def test_satisfies_tolerates_rounding_but_not_errors() -> None:
     assert satisfies(equation, 8) and satisfies(equation, -12)
     assert not satisfies(equation, 9)
     assert not satisfies(compile_equation("1/x = 1"), 0)  # division by zero is just "no"
+
+
+def test_relations_in_two_variables() -> None:
+    line = compile_relation("y = 1.8x + 32")
+    assert line(100, 212) == pytest.approx(0)
+    assert proportional2(compile_relation("9x - 5y + 160 = 0"), line)
+    assert not proportional2(compile_relation("y = 1.8x + 30"), line)
+    with pytest.raises(ExpressionError, match="Unknown name"):
+        compile_relation("z = 2x")
+
+
+def test_variable_name_is_configurable() -> None:
+    assert compile_expression("3t + 1", variable="t")(2) == 7
+    with pytest.raises(ExpressionError):
+        compile_expression("3x + 1", variable="t")

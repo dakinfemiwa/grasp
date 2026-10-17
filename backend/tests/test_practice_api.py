@@ -145,6 +145,35 @@ def test_scenario_can_be_requested_and_is_reported(client: TestClient, headers: 
     assert missing.status_code == 404
 
 
+def test_linear_attempt_aggregates_steps_per_objective(
+    client: TestClient, db: Session, headers: dict[str, str]
+) -> None:
+    body = {"template_id": "LIN-TWO-POINT", "scenario_id": "SCN-LIN-TAXI", "seed": 3}
+    instance = client.post("/api/v1/practice/instances", json=body, headers=headers).json()
+    p = params_of(db, instance["id"])
+    m = p["gradient_tenths"] / 10
+    meaning = next(f for f in instance["response_fields"] if f["name"] == "gradient_meaning")
+    assert "the cost per mile" in meaning["options"]
+    response = {
+        "gradient": m,
+        "equation": f"y = {m}x + {p['intercept']}",
+        "gradient_meaning": "the cost per mile",
+        "prediction": p["y3"] + 1,  # wrong prediction, everything else right
+        "reliability": "beyond the data" if p["extrapolate"] else "within the data",
+    }
+    result = client.post(
+        f"/api/v1/practice/instances/{instance['id']}/attempts", json={"response": response}, headers=headers
+    ).json()
+    assert result["outcome"] == "partial"
+    # MOD-07 covers both find_gradient (correct) and predict (incorrect), so it is incorrect overall.
+    assert result["objective_outcomes"] == {
+        "MOD-05": "correct",
+        "MOD-07": "incorrect",
+        "MOD-08": "correct",
+        "MOD-10": "correct",
+    }
+
+
 def test_templates_list_spec_refs_and_scenarios(client: TestClient, headers: dict[str, str]) -> None:
     (quad,) = [t for t in client.get("/api/v1/templates", headers=headers).json() if t["id"] == "QUAD-RECT-AREA"]
     assert "2.3" in quad["spec_refs"]
