@@ -2,72 +2,23 @@ import {
     ArrowUpRight,
     BarChart3,
     BookOpen,
-    CheckCircle2,
     ChevronRight,
     CircleHelp,
-    Flame,
-    Gauge,
     Home as HomeIcon,
     Menu,
     Settings2,
     Sparkles,
-    Target,
 } from "lucide-react";
 
 import { AuthControls } from "@/components/auth-controls";
+import { EvidenceOverview, EvidenceTotals } from "@/components/evidence";
 import { PracticePanel } from "@/components/practice-panel";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
-import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardHeader,
-    CardTitle,
-} from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
+import { Card, CardContent } from "@/components/ui/card";
 import { UserGreeting } from "@/components/user-greeting";
 import { getHealth } from "@/lib/api";
 import { cn } from "@/lib/utils";
-
-const objectives = [
-  {
-    name: "Construct a mathematical model",
-    detail: "Form an equation that represents a situation",
-    progress: 72,
-  },
-  {
-    name: "Interpret results",
-    detail: "Explain a solution in the original context",
-    progress: 48,
-  },
-  {
-    name: "Evaluate a model",
-    detail: "Identify limitations and refinements",
-    progress: 31,
-  },
-];
-
-const activity = [
-  {
-    title: "Quadratic modelling",
-    result: "4 / 5 correct",
-    time: "Today",
-    tone: "success" as const,
-  },
-  {
-    title: "Linear modelling",
-    result: "3 / 5 correct",
-    time: "Yesterday",
-    tone: "warning" as const,
-  },
-  {
-    title: "Trigonometric modelling",
-    result: "2 / 4 correct",
-    time: "Mon",
-    tone: "muted" as const,
-  },
-];
 
 export default async function Home() {
   let health: Awaited<ReturnType<typeof getHealth>> | null = null;
@@ -125,7 +76,7 @@ export default async function Home() {
                 Need a nudge?
               </div>
               <p className="mt-2 text-xs leading-5 text-slate-500">
-                Your next set changes the question style, not the skill.
+                A variation keeps the skill and changes the numbers or context.
               </p>
               <a
                 href="#how-it-works"
@@ -176,141 +127,36 @@ export default async function Home() {
               <CardContent className="relative p-6 sm:p-8">
                 <Badge>
                   <Sparkles className="mr-1.5 size-3.5" />
-                  Your adaptive session
+                  Mathematical modelling
                 </Badge>
                 <h2 className="mt-5 max-w-lg text-3xl font-semibold leading-tight tracking-tight sm:text-4xl">
                   Turn today&apos;s mistakes into tomorrow&apos;s confidence.
                 </h2>
                 <p className="mt-4 max-w-md text-sm leading-6 text-slate-300">
-                  Continue with a quadratic modelling question. Same skill, a
-                  fresh representation.
+                  Build a model from a real situation, solve it and interpret
+                  the answer. Every step is marked against the modelling skill
+                  it shows.
                 </p>
                 <a href="/practice" className={cn(buttonVariants(), "mt-7")}>
-                  Continue practice <ChevronRight className="size-4" />
+                  Start practice <ChevronRight className="size-4" />
                 </a>
-                <div className="mt-8 flex items-center gap-3 text-xs text-slate-400">
-                  <div className="flex -space-x-1">
-                    <span className="size-6 rounded-full border-2 border-[#102236] bg-cyan-200" />
-                    <span className="size-6 rounded-full border-2 border-[#102236] bg-violet-300" />
-                    <span className="size-6 rounded-full border-2 border-[#102236] bg-amber-200" />
-                  </div>{" "}
-                  5 questions · approximately 8 minutes
-                </div>
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-base">This week</CardTitle>
-                  <Flame className="size-5 text-amber-300" />
-                </div>
-                <CardDescription>Small steps compound.</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-end gap-3">
-                  <span className="text-5xl font-semibold tracking-tight">
-                    68%
-                  </span>
-                  <span className="mb-2 text-sm text-emerald-300">
-                    +12% <span className="text-slate-500">vs last week</span>
-                  </span>
-                </div>
-                <Progress className="mt-5" value={68} />
-                <div className="mt-3 flex justify-between text-xs text-slate-500">
-                  <span>17 attempts</span>
-                  <span>Target: 75%</span>
-                </div>
-              </CardContent>
-            </Card>
+            <EvidenceTotals />
           </div>
 
           <PracticePanel />
 
-          <div
-            id="progress"
-            className="mt-8 grid gap-5 xl:grid-cols-[1.2fr_0.8fr]"
-          >
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle>Learning objectives</CardTitle>
-                    <CardDescription className="mt-1">
-                      Your progress across the modelling skills.
-                    </CardDescription>
-                  </div>
-                  <Target className="size-5 text-cyan-300" />
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-5">
-                {objectives.map((objective) => (
-                  <div key={objective.name}>
-                    <div className="mb-2 flex items-center justify-between gap-4">
-                      <div>
-                        <p className="text-sm font-medium text-slate-200">
-                          {objective.name}
-                        </p>
-                        <p className="mt-0.5 text-xs text-slate-500">
-                          {objective.detail}
-                        </p>
-                      </div>
-                      <span className="text-sm font-semibold text-slate-300">
-                        {objective.progress}%
-                      </span>
-                    </div>
-                    <Progress value={objective.progress} />
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle>Recent practice</CardTitle>
-                    <CardDescription className="mt-1">
-                      Your latest adaptive sets.
-                    </CardDescription>
-                  </div>
-                  <Gauge className="size-5 text-violet-300" />
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-1">
-                {activity.map((item) => (
-                  <div
-                    key={item.title}
-                    className="flex items-center gap-3 rounded-lg px-2 py-3"
-                  >
-                    <CheckCircle2
-                      className={cn(
-                        "size-4 shrink-0",
-                        item.tone === "success"
-                          ? "text-emerald-300"
-                          : item.tone === "warning"
-                            ? "text-amber-300"
-                            : "text-slate-500",
-                      )}
-                    />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-slate-200">
-                        {item.title}
-                      </p>
-                      <p className="text-xs text-slate-500">{item.time}</p>
-                    </div>
-                    <Badge variant={item.tone}>{item.result}</Badge>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
+          <div id="progress">
+            <EvidenceOverview />
           </div>
 
           <footer
             id="how-it-works"
             className="mt-8 flex flex-col gap-3 border-t border-slate-800/80 py-6 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between"
           >
-            <p>Grasp adapts the next question to your last attempt.</p>
+            <p>Grasp records evidence for each modelling skill you show.</p>
             <p>Built for thoughtful practice, not streaks.</p>
           </footer>
         </section>

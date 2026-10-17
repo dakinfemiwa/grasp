@@ -327,3 +327,24 @@ Scenario library with explicit template compatibility, plus linear and trig temp
 - Deliberately transparent: raw counts with an explicit note ("not an estimate of mastery"). No mastery model and no prerequisite diagnosis (brief §10). `student_progress` is untouched.
 - Aggregation is in SQL (grouped counts), scoped by `user_id`.
 - `pytest`: **203 passed** (summary counts across two attempts, the unassessed objective stays at zero, recent order, per-user isolation, 401 without a token). Live: 401 without a token.
+
+---
+
+## Stage 6b — Student practice UI
+
+- `lib/api.ts`: typed client for objectives, templates, instances, attempts and the evidence summary (mirrors the backend schemas), plus `describeApiError` (turns 422 details into readable text). `lib/use-practice-api.ts`: `useWithToken()` attaches the Clerk session token (`useAuth().getToken()`).
+- `/practice` (`components/practice/practice-session.tsx`): choose a template (title + Edexcel spec refs) and an optional context, then:
+  - the prompt is shown with its scenario and objective tags;
+  - inputs are generated from `response_fields`: choice → buttons, expression/equation → monospace text, number, comma-separated number list;
+  - hints are revealed one at a time and sent as `hints_used`;
+  - after "Check my answer": per-step feedback with outcome icon and objective, then the worked solution;
+  - "Try this question again" records a new attempt on the same instance; "Try a variation" generates a new seed of the same template.
+  - It states that only the structured answers are marked, not free-form working (brief §11).
+- `/progress` (`components/evidence.tsx`): per-objective evidence table (correct / incorrect / missing / last), labelled as evidence, not mastery.
+- Dashboard: the fake numbers (68%, made-up objective bars and activity, "5 questions · 8 minutes") are replaced by live evidence totals, objectives with evidence (correct steps / marked steps) and recent attempts. The practice panel links to /practice and lists the three template families with spec refs.
+- Reuses the existing `Card`/`Badge`/`Button` primitives and dark styling; prompts are Unicode (no KaTeX dependency).
+
+### Checks
+- `npx tsc --noEmit`, `npm run lint`, clean `npm run build`: all pass.
+- **Not yet verified by me:** a signed-in browser session end-to-end, because I can't sign in to your Clerk account. Both servers are started for you to try.
+- Known minor inefficiency: the two dashboard evidence cards each fetch the summary (two small requests).
