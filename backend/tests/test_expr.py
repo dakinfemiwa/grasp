@@ -76,3 +76,23 @@ def test_variable_name_is_configurable() -> None:
     assert compile_expression("3t + 1", variable="t")(2) == 7
     with pytest.raises(ExpressionError):
         compile_expression("3x + 1", variable="t")
+
+
+@pytest.mark.parametrize(
+    ("text", "t", "expected"),
+    [
+        ("cos(60)", 0, 0.5),
+        ("22 - 20cos(36t)", 5, 42),
+        ("22 - 20 cos (36 t)", 0, 2),
+        ("22 + 20sin(36t - 90)", 0, 2),
+        ("2sin(t)cos(t)", 45, 1),
+    ],
+)
+def test_trig_functions_in_degrees(text: str, t: float, expected: float) -> None:
+    assert compile_expression(text, variable="t", trig=True)(t) == pytest.approx(expected)
+
+
+@pytest.mark.parametrize("text", ["cos(t)", "tan(t)", "cos t", "cos(t, 2)", "cos"])
+def test_trig_needs_opt_in_brackets_and_one_argument(text: str) -> None:
+    with pytest.raises(ExpressionError):
+        compile_expression(text, variable="t", trig=text != "cos(t)")

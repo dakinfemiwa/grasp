@@ -1,7 +1,8 @@
 """Safe parsing of a student's expression, equation or two-variable relation.
 
 Not a computer algebra system: input is tokenised against a whitelist (numbers, the allowed
-variable letters, + - * / ^ and brackets), implicit multiplication is made explicit, and the
+variable letters, optionally sin/cos in degrees, + - * / ^ and brackets), implicit
+multiplication is made explicit, and the
 result is compiled to a numeric function via a whitelisted AST. Equivalence is tested by
 evaluating at fixed sample points. That is enough to recognise x(x+4)=96, x^2+4x-96=0 and
 96=x(x+4) as one model, or y = 2x + 3 and 2x - y + 3 = 0 as one line.
@@ -22,6 +23,11 @@ MAX_POWER = 4
 SAMPLE_POINTS = (-7.31, -3.17, -0.53, 0.71, 2.39, 5.83, 11.47)
 
 _ALLOWED_CHARS = re.compile(r"[0-9a-z+\-*/().\s]*")
+# Trig functions take degrees, matching how templates state angles.
+FUNCTIONS: dict[str, Callable[[float], float]] = {
+    "sin": lambda d: math.sin(math.radians(d)),
+    "cos": lambda d: math.cos(math.radians(d)),
+}
 _TOKEN = re.compile(r"\s*(?:(?P<num>\d+(?:\.\d+)?)|(?P<name>[a-z]+)|(?P<op>\*\*|[-+*/()]))")
 
 
@@ -42,17 +48,25 @@ def _normalise(text: str) -> str:
     return s
 
 
-def _split_name(word: str, variables: Sequence[str]) -> list[tuple[str, str]]:
-    """'xx' -> x, x. Anything that is not an allowed variable letter is rejected."""
+def _split_name(word: str, variables: Sequence[str], functions: Sequence[str]) -> list[tuple[str, str]]:
+    """'xx' -> x, x; 'tcos' -> t, cos. Anything else is rejected."""
     out = []
-    for ch in word:
-        if ch not in variables:
-            raise ExpressionError(f"Unknown name '{word}'. Use only {', '.join(variables)}.")
-        out.append(("var", ch))
+    i = 0
+    while i < len(word):
+        func = next((f for f in functions if word.startswith(f, i)), None)
+        if func:
+            out.append(("func", func))
+            i += len(func)
+        elif word[i] in variables:
+            out.append(("var", word[i]))
+            i += 1
+        else:
+            allowed = ", ".join([*variables, *functions])
+            raise ExpressionError(f"Unknown name '{word}'. Use only {allowed}.")
     return out
 
 
-def _tokenise(s: str, variables: Sequence[str]) -> str:
+def _tokenise(s: str, variables: Sequence[str], functions: Sequence[str]) -> str:
     tokens: list[tuple[str, str]] = []
     pos = 0
     while pos < len(s):
@@ -63,34 +77,43 @@ def _tokenise(s: str, variables: Sequence[str]) -> str:
         if m["num"]:
             tokens.append(("num", m["num"]))
         elif m["name"]:
-            tokens.extend(_split_name(m["name"], variables))
+            tokens.extend(_split_name(m["name"], variables, functions))
         else:
             tokens.append(("op", m["op"]))
-    # Implicit multiplication: 2x, 2(, x(, )(, )x, x2.
+    # Implicit multiplication: 2x, 2(, x(, )(, )x, x2, 2cos. Never between a function and "(".
     out: list[str] = []
     for i, (kind, text) in enumerate(tokens):
         if i:
             prev_kind, prev_text = tokens[i - 1]
             ends_value = prev_kind in ("num", "var") or prev_text == ")"
-            starts_value = kind in ("num", "var") or text == "("
+            starts_value = kind in ("num", "var", "func") or text == "("
             if ends_value and starts_value:
                 out.append("*")
         out.append(text)
     return " ".join(out)
 
 
-def _build(node: ast.AST) -> _EnvFn:
+def _build(node: ast.AST, variables: Sequence[str]) -> _EnvFn:
     if isinstance(node, ast.Constant) and type(node.value) in (int, float):
         value = float(node.value)
         return lambda _env: value
-    if isinstance(node, ast.Name):
+    if isinstance(node, ast.Name) and node.id in variables:
         name = node.id
         return lambda env: env[name]
+    if (
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id in FUNCTIONS
+        and len(node.args) == 1
+        and not node.keywords
+    ):
+        fn, arg = FUNCTIONS[node.func.id], _build(node.args[0], variables)
+        return lambda env: fn(arg(env))
     if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.USub | ast.UAdd):
-        inner = _build(node.operand)
+        inner = _build(node.operand, variables)
         return (lambda env: -inner(env)) if isinstance(node.op, ast.USub) else inner
     if isinstance(node, ast.BinOp):
-        left, right = _build(node.left), _build(node.right)
+        left, right = _build(node.left, variables), _build(node.right, variables)
         match node.op:
             case ast.Add():
                 return lambda env: left(env) + right(env)
@@ -110,13 +133,13 @@ def _build(node: ast.AST) -> _EnvFn:
     raise ExpressionError("That is not a valid expression.")
 
 
-def _compile(text: str, variables: Sequence[str]) -> _EnvFn:
-    source = _tokenise(_normalise(text), variables)
+def _compile(text: str, variables: Sequence[str], functions: Sequence[str] = ()) -> _EnvFn:
+    source = _tokenise(_normalise(text), variables, functions)
     try:
         tree = ast.parse(source, mode="eval")
     except SyntaxError as exc:
         raise ExpressionError("That expression could not be read. Check the brackets and operators.") from exc
-    return _build(tree.body)
+    return _build(tree.body, variables)
 
 
 def _sides(text: str) -> tuple[str, str]:
@@ -126,8 +149,9 @@ def _sides(text: str) -> tuple[str, str]:
     return left, right
 
 
-def compile_expression(text: str, variable: str = "x") -> Fn:
-    f = _compile(text, (variable,))
+def compile_expression(text: str, variable: str = "x", trig: bool = False) -> Fn:
+    """trig=True also allows sin(...) and cos(...), in degrees."""
+    f = _compile(text, (variable,), tuple(FUNCTIONS) if trig else ())
     return lambda v: f({variable: v})
 
 

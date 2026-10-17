@@ -13,8 +13,8 @@ Pure modelling without calculus); the stage map from Stage 3 on follows §13 of 
 | 4 — Quadratic template engine + instance/evidence schema (generation, constraints, worked solution, structured marking, validation, ≥20 instances) | ✅ Done (2026-10-17) — verified against Neon |
 | 5a — Edexcel spec refs + scenario library | ✅ Done (2026-10-17) — verified against Neon |
 | 5b — Linear template LIN-TWO-POINT (spec 3.1) | ✅ Done (2026-10-17) |
-| 5c — Trig template TRIG-WHEEL-HEIGHT (spec 5.9, 5.7, 2.11) | ⏭ Next |
-| 6 — Student UI: modelling practice, structured response, feedback, worked solution, variation | Not started |
+| 5c — Trig template TRIG-WHEEL-HEIGHT (spec 5.9, 5.7, 2.11) | ✅ Done (2026-10-17) |
+| 6 — Student UI: modelling practice, structured response, feedback, worked solution, variation | ⏭ Next |
 | 7 — Tests sweep, README/architecture docs, final report (+ deployment, if still wanted) | Not started |
 
 **Decision (2026-10-17):** Generation engine, validation and marking live in the **Python backend**
@@ -303,3 +303,18 @@ Scenario library with explicit template compatibility, plus linear and trig temp
 ### Checks
 - `pytest`: **162 passed** (new `test_linear_template.py`: docstring example, 20 valid instances per scenario, exact temperature conversion, both reliability cases occur, 7 invalid-param cases, 5 accepted + 4 rejected equation forms, step separation, follow-through, scenario-driven options, slot validation; relation-parser tests; API objective aggregation).
 - No schema change (`alembic check` clean). CLI `--save`: 20/20 valid linear instances stored on Neon.
+
+---
+
+## Stage 5c — Trig template TRIG-WHEEL-HEIGHT v1 (Edexcel 5.9, 5.7, 2.11)
+
+- `backend/app/engine/templates/trig_wheel_height.py`: the spec's own example, "the height of a point on a vertical circular wheel". The student extracts the amplitude, centre height and period; forms h(t); solves for every time in the first revolution; states an assumption. Primary MOD-05; secondary MOD-01, MOD-07, MOD-09, MOD-04. spec_refs 5.9, 5.7, 2.11, OT3.5.
+- Generation: the period is drawn from divisors of 360 (so k = 360/T is whole), and the target angle from {60°, 90°, 120°} (exact cosines 0.5, 0, −0.5), with angle × T a multiple of 360 so times are whole. The radius is even when cos = ±0.5. The target height and both times are derived.
+- Marking (five steps): features (spots radius-vs-centre confusion); model (numeric equivalence in t, so a phase-shifted sine passes; a model starting at the top gets specific feedback); first solution; all solutions in the first revolution (rejects second-revolution and negative times, flags a missing second time); assumption (a choice; the prompt deliberately doesn't say "constant").
+- Parser: whitelisted `sin`/`cos` in degrees, opt-in per call (`trig=True`), brackets required.
+- Scenarios (`content/scenarios/wheels.yaml`, all draft): Ferris wheel (minutes, default), fairground wheel (seconds), large observation wheel, heritage-mill waterwheel. New `datum` slot: heights can be measured above something other than the ground (the waterwheel pit floor).
+- Dropped during authoring: a spun bicycle wheel. Divisor-of-360 periods mean ≥ 4 s per revolution, which isn't realistic for a spun wheel, so it was replaced by the waterwheel (real ones turn at 2–10 rpm). Tides / hours of sunlight (2.11, 5.9) need a different phase and midline, so they're left for a future template.
+
+### Checks
+- `pytest`: **201 passed** (new `test_trig_template.py`: docstring example, 20 valid instances per scenario with exact-value checks, all three angles occur, 7 invalid-param cases, 5 accepted + 4 rejected model forms, top-start feedback, extraneous/negative times rejected, missing second time, step separation, scenario units and datum; trig parser tests).
+- No schema change (`alembic check` clean). CLI `--save`: 20/20 valid trig instances stored on Neon. The registry now has 3 templates and 13 scenarios.

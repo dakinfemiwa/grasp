@@ -1,0 +1,89 @@
+# Rotating-wheel scenarios for TRIG-WHEEL-HEIGHT (Edexcel 9MA0 5.9: "the height of a point on a
+# vertical circular wheel"). Template ranges: radius 2-80, clearance 1-80, period 4-120 (a
+# divisor of 360), angle 60-120. Wording must not mention sin/cos or constant speed (that is
+# the assumption the student is asked for). review_status stays `draft` until reviewed.
+
+scenarios:
+  - id: SCN-WHEEL-FERRIS
+    version: 1
+    title: Ferris wheel
+    description: A Ferris wheel timed in minutes (the template's default context).
+    entities: [Ferris wheel, passenger car]
+    relationships: [height = centre height - radius × cos(angle turned)]
+    assumptions: [The wheel turns at a constant speed., The car is a point on a perfect circle.]
+    presentation: narrative
+    review_status: draft
+    compatible_templates:
+      - template: TRIG-WHEEL-HEIGHT
+        version: 1
+        slots: {subject: A Ferris wheel, point: passenger car, length_unit: m, time_unit: minutes}
+        bounds:
+          radius: {min: 10, max: 40}
+          clearance: {min: 1, max: 5}
+          period: {min: 8, max: 30}
+
+  - id: SCN-WHEEL-FAIR
+    version: 1
+    title: Fairground Ferris wheel
+    description: A Ferris wheel at a fair, timed in seconds.
+    entities: [Ferris wheel, passenger car]
+    relationships: [height = centre height - radius × cos(angle turned)]
+    assumptions: [The wheel turns at a constant speed., The car is a point on a perfect circle.]
+    presentation: narrative
+    review_status: draft
+    compatible_templates:
+      - template: TRIG-WHEEL-HEIGHT
+        version: 1
+        slots: {subject: A Ferris wheel at a fair, point: passenger car, length_unit: m, time_unit: seconds}
+        bounds:
+          radius: {min: 6, max: 20}
+          clearance: {min: 1, max: 3}
+          period: {min: 20, max: 60}
+
+  - id: SCN-WHEEL-OBSERVATION
+    version: 1
+    title: Large observation wheel
+    description: A large observation wheel whose pods take tens of minutes per revolution.
+    entities: [observation wheel, pod]
+    relationships: [height = centre height - radius × cos(angle turned)]
+    assumptions: [The wheel turns at a constant speed., The pod is a point on a perfect circle.]
+    presentation: narrative
+    review_status: draft
+    compatible_templates:
+      - template: TRIG-WHEEL-HEIGHT
+        version: 1
+        slots:
+          lead_in: Visitors ride in pods attached to the rim of a large observation wheel.
+          subject: The wheel
+          point: pod
+          length_unit: m
+          time_unit: minutes
+        bounds:
+          radius: {min: 30, max: 70}
+          clearance: {min: 2, max: 10}
+          period: {min: 20, max: 40}
+
+  - id: SCN-WHEEL-WATERMILL
+    version: 1
+    title: Heritage mill waterwheel
+    description: A slowly turning waterwheel; heights are measured above the floor of the wheel pit.
+    entities: [waterwheel, paddle, wheel pit]
+    relationships: [height = centre height - radius × cos(angle turned)]
+    # Real waterwheels turn at roughly 2-10 revolutions per minute, i.e. 6-30 seconds each.
+    assumptions: [The wheel turns at a constant speed., The marked paddle tip moves on a perfect circle.]
+    presentation: narrative
+    review_status: draft
+    compatible_templates:
+      - template: TRIG-WHEEL-HEIGHT
+        version: 1
+        slots:
+          lead_in: A heritage mill has a waterwheel that turns inside a stone pit.
+          subject: The waterwheel
+          point: marked paddle tip
+          datum: the floor of the pit
+          length_unit: m
+          time_unit: seconds
+        bounds:
+          radius: {min: 2, max: 6}
+          clearance: {min: 1, max: 2}
+          period: {min: 8, max: 30}
