@@ -10,8 +10,8 @@ Pure modelling without calculus); the stage map from Stage 3 on follows §13 of 
 | 1 — Architecture + scaffold | ✅ Done (2026-10-17) — verified against Neon |
 | 2 — Data model | ✅ Done (2026-10-17) |
 | 3 — Rename to Grasp + modelling objective catalogue | ✅ Done (2026-10-17) — verified against Neon |
-| 4 — Quadratic template engine + instance/evidence schema (generation, constraints, worked solution, structured marking, validation, ≥20 instances) | ⏭ Next |
-| 5 — Scenario library (draft/reviewed/approved, explicit compatibility) + extension points for linear/trig templates | Not started |
+| 4 — Quadratic template engine + instance/evidence schema (generation, constraints, worked solution, structured marking, validation, ≥20 instances) | ✅ Done (2026-10-17) — verified against Neon |
+| 5 — Scenario library (draft/reviewed/approved, explicit compatibility) + extension points for linear/trig templates | ⏭ Next |
 | 6 — Student UI: modelling practice, structured response, feedback, worked solution, variation | Not started |
 | 7 — Tests sweep, README/architecture docs, final report (+ deployment, if still wanted) | Not started |
 
@@ -218,3 +218,42 @@ Schema, migrations, seed pipeline and content-file format are in place. *(Supers
 
 ### Ready for Stage 4
 Objectives exist as FK targets for templates, instances and evidence. Stage 4 adds the quadratic template engine and replaces `questions`/`attempts` with instance/evidence tables.
+
+
+---
+
+## Stage 4 — Quadratic template engine + instance/evidence schema
+
+### Engine (`backend/app/engine/`, deterministic Python, no LLM)
+- `base.py`: `QuestionTemplate` (the extension point for every family), `Constraint`, `MarkingCriterion`, `ResponseField`, `Hint`, `WorkedStep`, `MarkedStep`, `ValidationCheck`, `ReviewStatus`, plus errors (`InvalidParameters`, `GenerationError`, `InvalidInstance`) that each list every problem.
+- `generator.py`: `generate(template, seed)` (RNG seeded from `id:vN:seed`, so it's reproducible) and `build(template, params)`. Sampling retries until the constraints hold, then raises. Generic validation covers: registered, objectives exist in the catalogue, marking objectives declared, params typed, constraints hold, primary objective assessed, **expected answer marks fully correct**, worked solution covers criteria, difficulty range.
+- `expr.py`: safe single-variable expression/equation parser (whitelisted AST, implicit multiplication, powers ≤ 4) with sample-point equivalence. It is not a CAS.
+- `templates/quadratic_rectangle.py`: **QUAD-RECT-AREA v1** (status `draft`). Picks width 2–20 and difference 1–12, derives area (≤ 500 cm²). Primary MOD-05; secondary MOD-02, 07, 09, 08. Template checks: positive solution exists, answer satisfies conditions, negative root rejected by marking, units consistent, given values present, prompt doesn't name x or state a solution.
+- Marking has five steps, each tied to one objective: define variables (MOD-02), form equation (MOD-05, any rearrangement/scaling), solve (MOD-07, with follow-through credit for a correctly solved wrong equation), reject the negative root (MOD-09), interpret the dimensions (MOD-08, detects swaps). x = length is accepted as an equally valid model.
+- `cli.py`: `python -m app.engine.cli list | generate <ID> --count N --seed S [--show] [--save]`.
+
+### Schema (migration `0003`)
+- Dropped the empty `questions` / `attempts` (the migration refuses if they have rows).
+- `question_instances`: template id/version, seed, scenario_id (null until Stage 5), parameters, prompt, expected answer, worked solution, validation results, difficulty; unique (template, version, seed).
+- `question_instance_objectives`: objective tags with `is_primary`.
+- `student_evidence`: user, instance, attempt_number (unique per user+instance), structured response, overall outcome (correct/partial/incorrect), per-step marking, hints used, time taken.
+- `evidence_objectives`: per-objective outcome per attempt (correct/incorrect/missing).
+- `student_progress` is untouched and separate from evidence. Nothing updates it yet (no mastery estimate), so one wrong answer never "diagnoses" a prerequisite.
+- Templates have no table: they're code, and an instance records (id, version, seed) to regenerate exactly.
+
+### API
+`GET /templates`, `POST /practice/instances` (`template_id`/`seed` optional; get-or-create), `GET /practice/instances/{id}` (no answer), `POST /practice/instances/{id}/attempts` (marks, stores evidence, returns steps + objective outcomes + worked solution). Bad responses or hint ids → structured 422. Drafts are served only when `ENVIRONMENT=development`.
+
+### Checks
+- `pytest`: **105 passed**. New: `test_expr`, `test_engine` (registry, generic validation catches unregistered/misaligned/unknown-objective/unsatisfiable templates), `test_quadratic_template` (brief's 8 × 12 garden, determinism, 30 seeds all valid with ≥ 20 distinct, 8 invalid-param cases, negative root rejected, equivalent equations, length-as-x, construction vs solving vs interpretation separated), `test_practice_api`.
+- Neon: `upgrade` → `downgrade -1` → `upgrade` → `alembic check`: no drift. CLI `--save`: 20/20 valid, 20 instances + 100 objective tags stored.
+- Live: all practice endpoints → 401 without a token.
+
+### Limitations / notes
+- QUAD-RECT-AREA is `draft`: it needs a teacher's review before it's marked `approved` (until then it's served in development only).
+- Prompts are plain text with fixed "rectangle, cm" wording; scenarios (garden, sports ground…) come in Stage 5.
+- Marking inspects only the structured fields; free-form reasoning isn't assessed.
+- No authenticated request from a real browser token has hit the practice endpoints yet (Stage 6 UI).
+
+### Ready for Stage 5
+Scenario library with explicit template compatibility, plus stub template families for linear and trig.

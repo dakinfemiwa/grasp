@@ -40,6 +40,30 @@ npm run dev
 
 Open `http://localhost:3000`. The API health endpoint is `http://localhost:8000/api/v1/health`.
 
+## Question generation
+
+Templates are deterministic Python in `backend/app/engine/templates/` (no LLM at runtime). An instance is a pure function of (template id, template version, seed), and every instance is validated (structural, mathematical, and automated pedagogical/presentation checks) before it can be used.
+
+From `backend/`:
+
+```powershell
+.venv\Scripts\python.exe -m app.engine.cli list
+.venv\Scripts\python.exe -m app.engine.cli generate QUAD-RECT-AREA --count 20 --seed 1 --show
+.venv\Scripts\python.exe -m app.engine.cli generate QUAD-RECT-AREA --count 20 --seed 1 --save   # persist
+```
+
+API (Clerk token required): `GET /api/v1/templates`, `POST /api/v1/practice/instances`, `GET /api/v1/practice/instances/{id}`, `POST /api/v1/practice/instances/{id}/attempts`. Attempts take a structured response (variable, other side, equation, roots, final dimensions) and are marked step by step; each step is recorded as objective-level evidence.
+
+Templates start as `draft`. Only `approved` templates are served outside `ENVIRONMENT=development`; change `review_status` after a teacher has reviewed the template.
+
+### Adding a template
+
+1. Create `backend/app/engine/templates/<name>.py` with a subclass of `QuestionTemplate` (`app/engine/base.py`): a strict Pydantic params model, a response model, `constraints`, `marking_criteria`, `response_fields`, and the methods `sample`, `render_prompt`, `expected_answer`, `worked_solution`, `mark`, `difficulty` and optionally `checks`. In `sample`, choose independent values and derive the dependent ones so a valid solution is guaranteed.
+2. Decorate it with `@register` and import it in `app/engine/templates/__init__.py`.
+3. Reference only catalogue objective ids. Validation fails if `expected_answer` is not marked fully correct.
+4. Add tests (see `tests/test_quadratic_template.py`), and run the CLI for 20+ seeds.
+5. Never change a published `(id, version)`; bump `version` instead, so stored instances stay reproducible.
+
 ## Quality checks
 
 ```powershell

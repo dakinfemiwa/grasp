@@ -7,28 +7,17 @@ class UserRole(StrEnum):
     ADMIN = "admin"
 
 
-class Representation(StrEnum):
-    """How a question is presented to the student (the 'surface form')."""
+class StepOutcome(StrEnum):
+    """Outcome of one marked modelling step, and of the objective-level evidence it yields."""
 
-    NUMERIC = "numeric"  # bare values, e.g. "u = 3, a = 2, t = 5. Find v."
-    WORD = "word"  # prose description of a situation
-    GRAPH = "graph"  # read from / reason about a motion graph
-    TABLE = "table"  # data given in a table
-    DIAGRAM = "diagram"  # labelled sketch or set-up description
-
-
-class Correctness(StrEnum):
     CORRECT = "correct"
     INCORRECT = "incorrect"
-    INVALID = "invalid"  # answer could not be parsed as a number
+    MISSING = "missing"  # the student left this part blank
 
 
-class ErrorType(StrEnum):
-    CORRECT = "CORRECT"
-    ARITHMETIC_ERROR = "ARITHMETIC_ERROR"
-    VARIABLE_IDENTIFICATION_ERROR = "VARIABLE_IDENTIFICATION_ERROR"
-    FORMULA_SELECTION_ERROR = "FORMULA_SELECTION_ERROR"
-    SIGN_ERROR = "SIGN_ERROR"
-    UNIT_ERROR = "UNIT_ERROR"
-    MULTI_STEP_ERROR = "MULTI_STEP_ERROR"
-    UNKNOWN_ERROR = "UNKNOWN_ERROR"
+class EvidenceOutcome(StrEnum):
+    """Overall outcome of an attempt. Objective-level detail lives in evidence_objectives."""
+
+    CORRECT = "correct"  # every step correct
+    PARTIAL = "partial"  # some steps correct
+    INCORRECT = "incorrect"  # no step correct
